@@ -16,7 +16,14 @@ const filesToUpload = [
     { local: 'routes/users.js', remote: `${APP_DIR}/routes/users.js` },
     { local: 'routes/sync.js', remote: `${APP_DIR}/routes/sync.js` },
     { local: 'routes/tickets.js', remote: `${APP_DIR}/routes/tickets.js` },
-    { local: '.env', remote: `${APP_DIR}/.env` },
+    { local: 'routes/notifications.js', remote: `${APP_DIR}/routes/notifications.js` },
+    { local: 'routes/university.js', remote: `${APP_DIR}/routes/university.js` },
+    { local: 'routes/reports.js', remote: `${APP_DIR}/routes/reports.js` },
+    { local: 'routes/documents.js', remote: `${APP_DIR}/routes/documents.js` },
+    { local: 'routes/lgpd.js', remote: `${APP_DIR}/routes/lgpd.js` },
+    { local: 'utils/audit.js', remote: `${APP_DIR}/utils/audit.js` },
+    { local: 'utils/notifications.js', remote: `${APP_DIR}/utils/notifications.js` },
+    { local: '.gitignore', remote: `${APP_DIR}/.gitignore` },
     { local: 'package.json', remote: `${APP_DIR}/package.json` },
     { local: 'utils/email.js', remote: `${APP_DIR}/utils/email.js` },
     { local: 'middleware/auth.js', remote: `${APP_DIR}/middleware/auth.js` },
@@ -84,7 +91,7 @@ c.on('ready', async () => {
 
     // 1. Create directories that may not exist
     console.log('📁 Criando diretórios...');
-    await exec(c, `mkdir -p ${APP_DIR}/utils ${APP_DIR}/pages ${APP_DIR}/admin ${APP_DIR}/js ${APP_DIR}/css ${APP_DIR}/routes ${APP_DIR}/database ${APP_DIR}/middleware`);
+    await exec(c, `mkdir -p ${APP_DIR}/utils ${APP_DIR}/pages ${APP_DIR}/admin ${APP_DIR}/js ${APP_DIR}/css ${APP_DIR}/routes ${APP_DIR}/database ${APP_DIR}/middleware ${APP_DIR}/uploads`);
     console.log('  ✅ Todos os diretórios criados');
 
     // 2. Upload files via SFTP
