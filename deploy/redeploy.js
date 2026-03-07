@@ -42,6 +42,7 @@ const filesToUpload = [
     { local: 'js/consultas.js', remote: `${APP_DIR}/js/consultas.js` },
     { local: 'css/style.css', remote: `${APP_DIR}/css/style.css` },
     { local: 'css/logo.png', remote: `${APP_DIR}/css/logo.png` },
+    { local: 'css/logo-footer.png', remote: `${APP_DIR}/css/logo-footer.png` },
     { local: 'pages/configuracoes.html', remote: `${APP_DIR}/pages/configuracoes.html` },
     { local: 'pages/dashboard.html', remote: `${APP_DIR}/pages/dashboard.html` },
     { local: 'pages/relatorios-comissoes.html', remote: `${APP_DIR}/pages/relatorios-comissoes.html` },
