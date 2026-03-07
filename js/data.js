@@ -8,9 +8,9 @@ const DB = {
     API_URL: '', // Relative URL (same origin)
 
     // ── Token Management ──
-    getToken() { return localStorage.getItem('mi2_token'); },
-    setToken(token) { localStorage.setItem('mi2_token', token); },
-    removeToken() { localStorage.removeItem('mi2_token'); },
+    getToken() { return localStorage.getItem('credbusiness_token'); },
+    setToken(token) { localStorage.setItem('credbusiness_token', token); },
+    removeToken() { localStorage.removeItem('credbusiness_token'); },
 
     // ── API Helper ──
     async api(method, url, data) {
@@ -47,14 +47,14 @@ const DB = {
 
     // ── Helpers localStorage ──
     get(key) {
-        try { return JSON.parse(localStorage.getItem('mi2_' + key)); }
+        try { return JSON.parse(localStorage.getItem('credbusiness_' + key)); }
         catch { return null; }
     },
     set(key, val) {
-        localStorage.setItem('mi2_' + key, JSON.stringify(val));
+        localStorage.setItem('credbusiness_' + key, JSON.stringify(val));
     },
     remove(key) {
-        localStorage.removeItem('mi2_' + key);
+        localStorage.removeItem('credbusiness_' + key);
     },
 
     // ── Inicializar ──

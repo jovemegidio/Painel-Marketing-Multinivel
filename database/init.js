@@ -10,7 +10,7 @@ let db;
 
 function getDB() {
     if (!db) {
-        const dbPath = process.env.DB_PATH || path.join(__dirname, 'mi2.db');
+        const dbPath = process.env.DB_PATH || path.join(__dirname, 'credbusiness.db');
         db = new Database(dbPath);
         db.pragma('journal_mode = WAL');
         db.pragma('foreign_keys = ON');

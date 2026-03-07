@@ -39,7 +39,9 @@ const filesToUpload = [
     { local: 'politica-de-privacidade.html', remote: `${APP_DIR}/politica-de-privacidade.html` },
     { local: 'js/data.js', remote: `${APP_DIR}/js/data.js` },
     { local: 'js/components.js', remote: `${APP_DIR}/js/components.js` },
+    { local: 'js/consultas.js', remote: `${APP_DIR}/js/consultas.js` },
     { local: 'css/style.css', remote: `${APP_DIR}/css/style.css` },
+    { local: 'css/logo.png', remote: `${APP_DIR}/css/logo.png` },
     { local: 'pages/configuracoes.html', remote: `${APP_DIR}/pages/configuracoes.html` },
     { local: 'pages/dashboard.html', remote: `${APP_DIR}/pages/dashboard.html` },
     { local: 'pages/relatorios-comissoes.html', remote: `${APP_DIR}/pages/relatorios-comissoes.html` },
@@ -118,7 +120,7 @@ c.on('ready', async () => {
 
     // 4. Delete old DB (to force recreation with new schema)
     console.log('\n🗑️  Recriando banco de dados...');
-    out = await exec(c, `rm -f ${APP_DIR}/database/mi2.db && echo "DB removed"`);
+    out = await exec(c, `rm -f ${APP_DIR}/database/credbusiness.db && echo "DB removed"`);
     console.log('  ', out.trim());
 
     // 5. Restart PM2
@@ -147,8 +149,8 @@ c.on('ready', async () => {
     out = await exec(c, `curl -s -o /dev/null -w '%{http_code}' http://localhost:3001/server.js`);
     console.log(`  server.js acessível? HTTP ${out} (esperado: 404)`);
 
-    out = await exec(c, `curl -s -o /dev/null -w '%{http_code}' http://localhost:3001/database/mi2.db`);
-    console.log(`  mi2.db acessível? HTTP ${out} (esperado: 404)`);
+    out = await exec(c, `curl -s -o /dev/null -w '%{http_code}' http://localhost:3001/database/credbusiness.db`);
+    console.log(`  credbusiness.db acessível? HTTP ${out} (esperado: 404)`);
 
     // Test health
     out = await exec(c, `curl -s http://localhost:3001/api/health`);

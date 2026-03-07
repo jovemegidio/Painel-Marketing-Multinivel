@@ -122,7 +122,7 @@ const Layout = {
         return `
             <div class="sidebar-header">
                 <a class="sidebar-brand" href="${bp}pages/dashboard.html">
-                    <div class="brand-icon">${this.settings.logoText || 'Credbusiness'}</div>
+                    <div class="brand-icon"><img src="${bp}css/logo.png" alt="Logo"></div>
                     <h1>${this.settings.siteName || 'Credbusiness'}</h1>
                 </a>
             </div>
@@ -171,7 +171,7 @@ const Layout = {
         return `
             <div class="sidebar-header">
                 <a class="sidebar-brand" href="${bp}admin/index.html">
-                    <div class="brand-icon">${this.settings.logoText || 'Credbusiness'}</div>
+                    <div class="brand-icon"><img src="${bp}css/logo.png" alt="Logo"></div>
                     <h1>${this.settings.siteName || 'Credbusiness'}</h1>
                 </a>
             </div>

@@ -16,10 +16,10 @@ function exec(conn, cmd) {
 const backupScript = `#!/bin/bash
 DATE=$(date +%Y%m%d_%H%M%S)
 BACKUP_DIR=/var/backups/credbusiness
-DB_PATH=/var/www/credbusiness/database/mi2.db
-sqlite3 $DB_PATH ".backup $BACKUP_DIR/mi2_$DATE.db"
-ls -t $BACKUP_DIR/mi2_*.db 2>/dev/null | tail -n +31 | xargs rm -f 2>/dev/null
-echo "[$(date)] Backup mi2_$DATE.db OK" >> /var/log/credbusiness-backup.log
+DB_PATH=/var/www/credbusiness/database/credbusiness.db
+sqlite3 $DB_PATH ".backup $BACKUP_DIR/credbusiness_$DATE.db"
+ls -t $BACKUP_DIR/credbusiness_*.db 2>/dev/null | tail -n +31 | xargs rm -f 2>/dev/null
+echo "[$(date)] Backup credbusiness_$DATE.db OK" >> /var/log/credbusiness-backup.log
 `;
 
 c.on('ready', async () => {
@@ -62,7 +62,7 @@ c.on('ready', async () => {
 
     // Final summary
     console.log('\n════════════════════════════════════════');
-    out = await exec(c, "pm2 status && echo '---' && df -h / | tail -1 && echo '---' && free -h | tail -2 && echo '---' && ls -lh /var/www/credbusiness/database/mi2.db && echo '---' && cat /etc/nginx/sites-enabled/credbusiness | grep -E 'ssl|listen|server_name' | head -10");
+    out = await exec(c, "pm2 status && echo '---' && df -h / | tail -1 && echo '---' && free -h | tail -2 && echo '---' && ls -lh /var/www/credbusiness/database/credbusiness.db && echo '---' && cat /etc/nginx/sites-enabled/credbusiness | grep -E 'ssl|listen|server_name' | head -10");
     console.log(out);
 
     console.log('\n🎯 SETUP SSL + BACKUP COMPLETO!');

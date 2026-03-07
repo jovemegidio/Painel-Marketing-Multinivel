@@ -162,7 +162,7 @@ async function deploy() {
 NODE_ENV=production
 JWT_SECRET=credbusiness_jwt_PROD_${Date.now()}_credbusiness_s3cret
 JWT_EXPIRES_IN=7d
-DB_PATH=./database/mi2.db
+DB_PATH=./database/credbusiness.db
 DOMAIN=mkt-credbusiness.vps-kinghost.net
 API_CPF_URL=
 API_CPF_KEY=

@@ -12,7 +12,7 @@
     <div class="login-card" style="max-width:520px">
         <!-- Brand -->
         <div class="login-brand">
-            <div class="brand-icon">Credbusiness</div>
+            <div class="brand-icon"><img src="css/logo.png" alt="Credbusiness"></div>
             <h2>Criar sua conta</h2>
             <p>Preencha os dados para começar</p>
         </div>
@@ -153,8 +153,7 @@
     DB.init();
     const _s = DB.getSettings();
     document.title = (_s.siteName||'Credbusiness') + ' — Cadastro';
-    const _bi = document.querySelector('.login-brand .brand-icon');
-    if (_bi) _bi.textContent = _s.logoText || 'Credbusiness';
+    // Logo is now an image, no need to set text
 
     function setPersonType(type) {
         document.getElementById('docLabel').textContent = type === 'pf' ? 'CPF *' : 'CNPJ *';

@@ -12,7 +12,7 @@
     <div class="login-card">
         <!-- Brand -->
         <div class="login-brand">
-            <div class="brand-icon">Credbusiness</div>
+            <div class="brand-icon"><img src="css/logo.png" alt="Credbusiness"></div>
             <h2>Bem-vindo de volta</h2>
             <p>Acesse seu escritório virtual</p>
         </div>
@@ -99,18 +99,18 @@
 <script>
     // Clear stale auth data on login page load (prevents redirect loops)
     (function cleanupStaleAuth() {
-        const token = localStorage.getItem('mi2_token');
+        const token = localStorage.getItem('credbusiness_token');
         if (token) {
             try {
                 const payload = JSON.parse(atob(token.split('.')[1]));
                 if (!payload.exp || payload.exp * 1000 < Date.now()) {
-                    localStorage.removeItem('mi2_token');
-                    localStorage.removeItem('mi2_currentUser');
+                    localStorage.removeItem('credbusiness_token');
+                    localStorage.removeItem('credbusiness_currentUser');
                     return;
                 }
             } catch {
-                localStorage.removeItem('mi2_token');
-                localStorage.removeItem('mi2_currentUser');
+                localStorage.removeItem('credbusiness_token');
+                localStorage.removeItem('credbusiness_currentUser');
                 return;
             }
         }
@@ -124,8 +124,7 @@
     // Apply dynamic branding
     const _s = DB.getSettings();
     document.title = _s.siteTitle || 'Credbusiness — Entrar';
-    const brandIcon = document.querySelector('.login-brand .brand-icon');
-    if (brandIcon) brandIcon.textContent = _s.logoText || 'Credbusiness';
+    // Logo is now an image, no need to set text
 
     let pending2FAToken = null;
 

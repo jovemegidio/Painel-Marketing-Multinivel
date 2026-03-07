@@ -3,7 +3,7 @@
 
 async function consultarCPFReal(cpf, nomeCompleto) {
     try {
-        const token = DB.getToken ? DB.getToken() : localStorage.getItem('mi2_token');
+        const token = DB.getToken ? DB.getToken() : localStorage.getItem('credbusiness_token');
         const response = await fetch('/api/services/consultar-cpf', {
             method: 'POST',
             headers: {
@@ -21,7 +21,7 @@ async function consultarCPFReal(cpf, nomeCompleto) {
 
 async function consultarBacenReal(cpf) {
     try {
-        const token = DB.getToken ? DB.getToken() : localStorage.getItem('mi2_token');
+        const token = DB.getToken ? DB.getToken() : localStorage.getItem('credbusiness_token');
         const response = await fetch('/api/services/consultar-bacen', {
             method: 'POST',
             headers: {

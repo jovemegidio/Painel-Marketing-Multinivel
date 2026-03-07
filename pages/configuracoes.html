@@ -398,7 +398,7 @@
             }
         } catch {
             // Fallback: load from localStorage
-            const saved = JSON.parse(localStorage.getItem('mi2_notif_prefs') || 'null');
+            const saved = JSON.parse(localStorage.getItem('credbusiness_notif_prefs') || 'null');
             if (saved) {
                 notifKeys.forEach(k => {
                     const el = document.getElementById(k);
@@ -413,7 +413,7 @@
         notifKeys.forEach(k => { prefs[k] = document.getElementById(k).checked; });
 
         // Save locally immediately
-        localStorage.setItem('mi2_notif_prefs', JSON.stringify(prefs));
+        localStorage.setItem('credbusiness_notif_prefs', JSON.stringify(prefs));
 
         try {
             await DB.api('PUT', '/api/users/preferences', { notifications: prefs });
