@@ -847,12 +847,25 @@ function processPaymentConfirmed(db, localPayment) {
  * Ativar pacote comprado
  */
 function activatePackage(db, userId, pkg) {
+    // Verificar se é o primeiro pacote (primeiro mês grátis)
+    const userBefore = db.prepare('SELECT has_package FROM users WHERE id = ?').get(userId);
+    const isFirstPackage = !userBefore || userBefore.has_package === 0;
+
     // Adicionar pontos e créditos de nomes ao usuário
     const namesCredit = pkg.names_count || 0;
     db.prepare('UPDATE users SET points = points + ?, names_available = names_available + ? WHERE id = ?').run(pkg.points, namesCredit, userId);
 
     // Ativar acesso ao painel + atualizar nível
     db.prepare('UPDATE users SET has_package = 1 WHERE id = ?').run(userId);
+
+    // Primeiro pacote: 1 mês grátis de mensalidade
+    if (isFirstPackage) {
+        const freeUntil = new Date();
+        freeUntil.setDate(freeUntil.getDate() + 30);
+        const freeUntilStr = freeUntil.toISOString().split('T')[0];
+        db.prepare('UPDATE users SET monthly_fee_paid_until = ?, access_blocked = 0 WHERE id = ?')
+            .run(freeUntilStr, userId);
+    }
     if (pkg.level_key) {
         const LEVEL_ORDER = { start: 1, bronze: 2, prata: 3, ouro: 4, diamante: 5 };
         const user = db.prepare('SELECT level FROM users WHERE id = ?').get(userId);
