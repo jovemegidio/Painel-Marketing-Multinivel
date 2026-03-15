@@ -9,7 +9,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Credbusiness">
     <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
-    <title>Credbusiness Admin ó Dashboard</title>
+    <title>Credbusiness Admin ‚Äî Dashboard</title>
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -18,23 +18,23 @@
     <div id="app"></div>
     <nav class="admin-nav" style="margin:24px 0 12px 0">
         <a href="index.html" class="btn btn-sm btn-outline">Dashboard</a>
-        <a href="users.html" class="btn btn-sm btn-outline">Usu·rios</a>
+        <a href="users.html" class="btn btn-sm btn-outline">Usu√°rios</a>
         <a href="processes.html" class="btn btn-sm btn-outline">Processos</a>
         <a href="tickets.html" class="btn btn-sm btn-outline">Tickets</a>
         <a href="careers.html" class="btn btn-sm btn-primary"><i class="fas fa-briefcase"></i> Candidaturas</a>
     </nav>
     <template id="page-content">
-        <div class="page-header"><h2>Painel Administrativo</h2><p>Vis„o geral do sistema</p></div>
+        <div class="page-header"><h2>Painel Administrativo</h2><p>Vis√£o geral do sistema</p></div>
 
         <div class="stats-grid" id="statsGrid"></div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:24px">
             <div class="card">
-                <div class="card-header"><h3>Usu·rios por NÌvel</h3></div>
+                <div class="card-header"><h3>Usu√°rios por N√≠vel</h3></div>
                 <div class="card-body"><canvas id="levelChart" height="260"></canvas></div>
             </div>
             <div class="card">
-                <div class="card-header"><h3>Cadastros ó ⁄ltimos 6 meses</h3></div>
+                <div class="card-header"><h3>Cadastros ‚Äî √öltimos 6 meses</h3></div>
                 <div class="card-body"><canvas id="growthChart" height="260"></canvas></div>
             </div>
         </div>
@@ -67,7 +67,7 @@
 
             /* -- Stats --- */
             const stats = [
-                { icon: 'fa-users', color: '#007bff', label: 'Total Usu·rios', value: totalUsers },
+                { icon: 'fa-users', color: '#007bff', label: 'Total Usu√°rios', value: totalUsers },
                 { icon: 'fa-dollar-sign', color: '#28a745', label: 'Receita Total', value: fmt(totalRevenue) },
                 { icon: 'fa-ticket', color: '#ffc107', label: 'Tickets Abertos', value: openTk },
                 { icon: 'fa-file-alt', color: '#dc3545', label: 'Processos Pendentes', value: pendingProc }
@@ -119,16 +119,16 @@
             /* -- Open Tickets -- */
             const tickets = data && data.recentTickets ? data.recentTickets : DB.getTickets().filter(t => t.status !== 'fechado').slice(0, 5);
             document.getElementById('openTickets').innerHTML = tickets.length ? `
-                <table class="table"><thead><tr><th>ID</th><th>Assunto</th><th>Usu·rio</th><th>Status</th></tr></thead><tbody>
-                ${tickets.map(t => `<tr><td>#${t.id}</td><td>${t.subject}</td><td>${t.user_name || 'ó'}</td><td><span class="badge badge-${t.status === 'aberto' ? 'warning' : 'info'}">${t.status}</span></td></tr>`
+                <table class="table"><thead><tr><th>ID</th><th>Assunto</th><th>Usu√°rio</th><th>Status</th></tr></thead><tbody>
+                ${tickets.map(t => `<tr><td>#${t.id}</td><td>${t.subject}</td><td>${t.user_name || '-'}</td><td><span class="badge badge-${t.status === 'aberto' ? 'warning' : 'info'}">${t.status}</span></td></tr>`
                 ).join('')}</tbody></table>` : '<p style="color:#64748b">Nenhum ticket aberto</p>';
 
             /* -- Recent Processes -- */
             const processes = data && data.recentProcesses ? data.recentProcesses : DB.getProcesses().slice(-5).reverse();
             const stMap = { pendente:'warning', em_andamento:'info', concluido:'success', cancelado:'danger' };
             document.getElementById('recentProcesses').innerHTML = processes.length ? `
-                <table class="table"><thead><tr><th>ID</th><th>Tipo</th><th>Usu·rio</th><th>Status</th></tr></thead><tbody>
-                ${processes.map(p => `<tr><td>#${p.id}</td><td>${p.type}</td><td>${p.user_name || 'ó'}</td><td><span class="badge badge-${stMap[p.status] || 'secondary'}">${(p.status||'').replace('_',' ')}</span></td></tr>`
+                <table class="table"><thead><tr><th>ID</th><th>Tipo</th><th>Usu√°rio</th><th>Status</th></tr></thead><tbody>
+                ${processes.map(p => `<tr><td>#${p.id}</td><td>${p.type}</td><td>${p.user_name || '-'}</td><td><span class="badge badge-${stMap[p.status] || 'secondary'}">${(p.status||'').replace('_',' ')}</span></td></tr>`
                 ).join('')}</tbody></table>` : '<p style="color:#64748b">Nenhum processo</p>';
         }
 

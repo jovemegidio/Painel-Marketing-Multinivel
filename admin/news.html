@@ -9,7 +9,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Credbusiness">
     <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
-    <title>Credbusiness Admin — Informativos</title>
+    <title>Credbusiness Admin â€” Informativos</title>
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
@@ -17,14 +17,14 @@
     <div id="app"></div>
     <template id="page-content">
         <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap">
-            <div><h2>Gerenciar Informativos</h2><p>Publique notícias e comunicados para os usuários</p></div>
+            <div><h2>Gerenciar Informativos</h2><p>Publique notÃ­cias e comunicados para os usuÃ¡rios</p></div>
             <button class="btn btn-primary" onclick="openNewsModal()"><i class="fas fa-plus"></i> Novo Informativo</button>
         </div>
 
         <div class="card">
             <div class="card-body" style="overflow-x:auto">
                 <table class="table" id="newsTable"><thead><tr>
-                    <th>ID</th><th>Título</th><th>Categoria</th><th>Data</th><th style="width:120px">Ações</th>
+                    <th>ID</th><th>TÃ­tulo</th><th>Categoria</th><th>Data</th><th style="width:120px">AÃ§Ãµes</th>
                 </tr></thead><tbody></tbody></table>
             </div>
         </div>
@@ -38,16 +38,16 @@
                 </div>
                 <form id="newsForm" onsubmit="saveNews(event)">
                     <input type="hidden" id="newsEditId">
-                    <div class="form-group"><label>Título</label><input type="text" id="newsTitle" class="form-control" required></div>
+                    <div class="form-group"><label>TÃ­tulo</label><input type="text" id="newsTitle" class="form-control" required></div>
                     <div class="form-group"><label>Categoria</label>
                         <select id="newsCat" class="form-control">
                             <option value="novidade">Novidade</option>
-                            <option value="sistema">Atualização</option>
-                            <option value="promocao">Promoção</option>
+                            <option value="sistema">AtualizaÃ§Ã£o</option>
+                            <option value="promocao">PromoÃ§Ã£o</option>
                             <option value="evento">Comunicado</option>
                         </select>
                     </div>
-                    <div class="form-group"><label>Conteúdo</label><textarea id="newsContent" class="form-control" rows="5" required></textarea></div>
+                    <div class="form-group"><label>ConteÃºdo</label><textarea id="newsContent" class="form-control" rows="5" required></textarea></div>
                     <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:16px">
                         <button type="button" class="btn btn-outline" onclick="closeNewsModal()">Cancelar</button>
                         <button type="submit" class="btn btn-primary">Salvar</button>
@@ -124,7 +124,7 @@
             if (!confirm('Excluir este informativo?')) return;
             await DB.api('DELETE', '/api/admin/news/' + id);
             await loadNews();
-            Layout.toast('Informativo excluído', 'success');
+            Layout.toast('Informativo excluÃ­do', 'success');
         }
 
         loadNews();

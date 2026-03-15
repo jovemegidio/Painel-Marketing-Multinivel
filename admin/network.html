@@ -9,19 +9,19 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Credbusiness">
     <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
-    <title>Credbusiness Admin ó Rede</title>
+    <title>Credbusiness Admin ‚Äî Rede</title>
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 <body>
     <div id="app"></div>
     <template id="page-content">
-        <div class="page-header"><h2>Rede Completa</h2><p>VisualizaÁ„o da ·rvore multinÌvel de todos os usu·rios</p></div>
+        <div class="page-header"><h2>Rede Completa</h2><p>Visualiza√ß√£o da √Årvore multin√≠vel de todos os usu√°rios</p></div>
 
         <div class="stats-grid" id="statsGrid"></div>
 
         <div class="card" style="margin-top:24px">
-            <div class="card-header"><h3>¡rvore de Rede</h3></div>
+            <div class="card-header"><h3>√Årvore de Rede</h3></div>
             <div class="card-body">
                 <div id="networkTree" class="tree-view"></div>
             </div>
@@ -87,7 +87,7 @@
             try {
                 const tree = await DB.api('GET', '/api/admin/network');
                 if (!tree || !tree.length) {
-                    document.getElementById('networkTree').innerHTML = '<p style="color:#64748b;text-align:center">Nenhum usu·rio cadastrado</p>';
+                    document.getElementById('networkTree').innerHTML = '<p style="color:#64748b;text-align:center">Nenhum usu√°rio cadastrado</p>';
                     return;
                 }
                 renderStats(tree);
