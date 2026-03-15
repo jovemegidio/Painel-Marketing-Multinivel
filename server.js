@@ -90,9 +90,9 @@ async function checkPendingPayments() {
         const { getDB } = require('./database/init');
         const db = getDB();
 
-        // Buscar pagamentos pendentes criados nas últimas 48h
+        // Buscar pagamentos pendentes (cartão até 5h, boleto até 3 dias, outros até 48h)
         const pending = db.prepare(
-            "SELECT * FROM payments WHERE status = 'pendente' AND asaas_payment_id IS NOT NULL AND created_at >= datetime('now', '-48 hours')"
+            "SELECT * FROM payments WHERE status = 'pendente' AND asaas_payment_id IS NOT NULL AND created_at >= datetime('now', '-3 days')"
         ).all();
 
         if (pending.length === 0) return;
@@ -102,12 +102,32 @@ async function checkPendingPayments() {
 
         for (const p of pending) {
             try {
-                const asaasPayment = await asaas.getPaymentStatus(p.asaas_payment_id);
-                if (!asaasPayment) continue;
+                let shouldActivate = false;
 
-                const newStatus = asaas.mapPaymentStatus(asaasPayment.status);
-                if (newStatus === 'pago' && p.status !== 'pago') {
-                    console.log(`[AutoCheck] Pagamento ${p.asaas_payment_id} CONFIRMADO — ativando...`);
+                // 1. Verificar com o gateway Asaas
+                const asaasPayment = await asaas.getPaymentStatus(p.asaas_payment_id);
+                if (asaasPayment) {
+                    const newStatus = asaas.mapPaymentStatus(asaasPayment.status);
+                    if (newStatus === 'pago' && p.status !== 'pago') {
+                        console.log(`[AutoCheck] Pagamento ${p.asaas_payment_id} CONFIRMADO pelo gateway — ativando...`);
+                        shouldActivate = true;
+                    }
+                }
+
+                // 2. Auto-ativação por tempo: cartão 5h, boleto 3 dias
+                if (!shouldActivate) {
+                    const createdAt = new Date(p.created_at + (p.created_at.includes('Z') ? '' : 'Z'));
+                    const hoursElapsed = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60);
+                    if (p.method === 'credit_card' && hoursElapsed >= 5) {
+                        console.log(`[AutoCheck] Pagamento ${p.asaas_payment_id} (cartão) — ${Math.round(hoursElapsed)}h decorridas, auto-ativando...`);
+                        shouldActivate = true;
+                    } else if (p.method === 'boleto' && hoursElapsed >= 72) {
+                        console.log(`[AutoCheck] Pagamento ${p.asaas_payment_id} (boleto) — ${Math.round(hoursElapsed)}h decorridas, auto-ativando...`);
+                        shouldActivate = true;
+                    }
+                }
+
+                if (shouldActivate && p.status !== 'pago') {
                     db.prepare("UPDATE payments SET status = 'pago', paid_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND status != 'pago'")
                         .run(p.id);
 
@@ -115,7 +135,6 @@ async function checkPendingPayments() {
                     if (p.type === 'package' && p.reference_id) {
                         const pkg = db.prepare('SELECT * FROM packages WHERE id = ?').get(p.reference_id);
                         if (pkg) {
-                            // Verificar se é o primeiro pacote
                             const userBefore = db.prepare('SELECT has_package FROM users WHERE id = ?').get(p.user_id);
                             const isFirstPackage = !userBefore || userBefore.has_package === 0;
                             const namesCredit = pkg.names_count || 0;

@@ -126,6 +126,7 @@
                 <td><span class="badge badge-${u.active ? 'success' : 'danger'}">${st}</span></td>
                 <td>
                     <button class="btn btn-sm btn-outline" onclick="openModal('edit',${u.id})" title="Editar"><i class="fas fa-edit"></i></button>
+                    ${!u.active ? `<button class="btn btn-sm btn-success" onclick="activatePayment(${u.id})" title="Ativar Pagamento"><i class="fas fa-bolt"></i></button>` : ''}
                     <button class="btn btn-sm btn-warning" onclick="resetPassword(${u.id})" title="Resetar Senha"><i class="fas fa-key"></i></button>
                     <button class="btn btn-sm btn-danger" onclick="deleteUser(${u.id})" title="Excluir"><i class="fas fa-trash"></i></button>
                 </td>
@@ -247,6 +248,17 @@
                 Layout.toast('Relatório exportado!', 'success');
             } catch (err) {
                 Layout.toast('Erro ao exportar: ' + err.message, 'error');
+            }
+        }
+        async function activatePayment(userId) {
+            if (!confirm('Ativar o pagamento pendente deste usuário?')) return;
+            const res = await DB.api('POST', `/api/admin/users/${userId}/activate-payment`);
+            if (res && res.success) {
+                Layout.toast(res.message || 'Pagamento ativado!', 'success');
+                await DB.syncData();
+                renderTable();
+            } else {
+                Layout.toast(res?.error || 'Erro ao ativar pagamento', 'error');
             }
         }
     </script>

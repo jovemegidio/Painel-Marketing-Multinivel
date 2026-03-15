@@ -194,6 +194,79 @@ router.post('/users/:id/reset-password', (req, res) => {
     res.json({ success: true, message: `Senha redefinida para: ${newPass}` });
 });
 
+// Ativar pagamento pendente de um usuário (busca o mais recente)
+router.post('/users/:id/activate-payment', (req, res) => {
+    try {
+        const db = getDB();
+        const userId = Number(req.params.id);
+        const user = db.prepare('SELECT id, name FROM users WHERE id = ?').get(userId);
+        if (!user) return res.status(404).json({ error: 'Usuário não encontrado' });
+
+        const payment = db.prepare(
+            "SELECT * FROM payments WHERE user_id = ? AND status = 'pendente' ORDER BY created_at DESC LIMIT 1"
+        ).get(userId);
+        if (!payment) return res.status(404).json({ error: 'Nenhum pagamento pendente encontrado para este usuário' });
+
+        // Redireciona para a lógica de ativação de pagamento
+        req.params.id = String(payment.id);
+        // Chama internamente a mesma lógica
+        db.prepare("UPDATE payments SET status = 'pago', paid_at = datetime('now'), updated_at = datetime('now') WHERE id = ?")
+            .run(payment.id);
+
+        if (payment.type === 'package' && payment.reference_id) {
+            const pkg = db.prepare('SELECT * FROM packages WHERE id = ?').get(payment.reference_id);
+            if (pkg) {
+                const userBefore = db.prepare('SELECT has_package FROM users WHERE id = ?').get(userId);
+                const isFirstPackage = !userBefore || userBefore.has_package === 0;
+                const namesCredit = pkg.names_count || 0;
+                db.prepare('UPDATE users SET points = points + ?, names_available = names_available + ? WHERE id = ?')
+                    .run(pkg.points, namesCredit, userId);
+                db.prepare('UPDATE users SET has_package = 1 WHERE id = ?').run(userId);
+                if (isFirstPackage) {
+                    const now = new Date();
+                    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                    db.prepare('UPDATE users SET monthly_fee_paid_until = ?, access_blocked = 0, active = 1 WHERE id = ?')
+                        .run(endOfMonth.toISOString().split('T')[0], userId);
+                }
+                if (pkg.level_key) {
+                    const LEVEL_ORDER = { start: 1, bronze: 2, prata: 3, ouro: 4, diamante: 5 };
+                    const u = db.prepare('SELECT level FROM users WHERE id = ?').get(userId);
+                    if ((LEVEL_ORDER[pkg.level_key] || 0) > (LEVEL_ORDER[u?.level] || 0)) {
+                        db.prepare('UPDATE users SET level = ? WHERE id = ?').run(pkg.level_key, userId);
+                    }
+                }
+                db.prepare(`UPDATE user_packages SET status = 'ativo', payment_status = 'pago'
+                    WHERE user_id = ? AND package_id = ? AND payment_status = 'pendente'
+                    ORDER BY id DESC LIMIT 1`)
+                    .run(userId, pkg.id);
+                createNotification(userId, 'purchase', 'Pacote ativado!',
+                    `Seu pacote "${pkg.name}" foi ativado pelo administrador. +${pkg.points} pontos e ${namesCredit} nome(s) adicionados!`);
+            }
+        }
+        if (payment.type === 'plan') {
+            const match = (payment.external_reference || '').match(/^plan_(.+?)_user_/);
+            if (match) {
+                db.prepare('UPDATE users SET plan = ? WHERE id = ?').run(match[1], userId);
+                createNotification(userId, 'plan', 'Plano ativado!', 'Seu plano foi ativado pelo administrador.');
+            }
+        }
+        if (payment.type !== 'deposit' && payment.type !== 'monthly_fee') {
+            db.prepare(`INSERT OR IGNORE INTO transactions (user_id, type, amount, description, reference_type, reference_id, date, status)
+                VALUES (?, 'pagamento', ?, ?, 'payment', ?, date('now'), 'concluido')`)
+                .run(userId, payment.amount, `Pagamento ${payment.type} via ${payment.method} (admin)`, payment.id);
+        }
+
+        logAudit({ userType: 'admin', userId: req.user.id, action: 'admin_activate_user_payment', entity: 'user',
+            entityId: userId, details: { paymentId: payment.id, type: payment.type, amount: payment.amount }, ip: getClientIP(req) });
+        broadcast('users', { action: 'updated', id: userId });
+
+        res.json({ success: true, message: `Pagamento #${payment.id} ativado para ${user.name}` });
+    } catch (err) {
+        console.error('Erro ativar pagamento usuário:', err.message);
+        res.status(500).json({ error: 'Erro ao ativar pagamento' });
+    }
+});
+
 // ════════════════════════════════════
 //   PROCESSES CRUD
 // ════════════════════════════════════
@@ -1087,6 +1160,120 @@ router.post('/careers/interview', async (req, res) => {
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false, error: 'Erro ao enviar convite.' });
+    }
+});
+
+// ════════════════════════════════════
+//   ATIVAR PAGAMENTO MANUALMENTE
+// ════════════════════════════════════
+router.post('/payments/:id/activate', (req, res) => {
+    try {
+        const db = getDB();
+        const paymentId = Number(req.params.id);
+        const payment = db.prepare('SELECT * FROM payments WHERE id = ?').get(paymentId);
+        if (!payment) return res.status(404).json({ error: 'Pagamento não encontrado' });
+        if (payment.status === 'pago') return res.status(400).json({ error: 'Pagamento já está confirmado' });
+
+        // Confirmar pagamento
+        db.prepare("UPDATE payments SET status = 'pago', paid_at = datetime('now'), updated_at = datetime('now') WHERE id = ?")
+            .run(paymentId);
+
+        // Ativar pacote
+        if (payment.type === 'package' && payment.reference_id) {
+            const pkg = db.prepare('SELECT * FROM packages WHERE id = ?').get(payment.reference_id);
+            if (pkg) {
+                const userBefore = db.prepare('SELECT has_package FROM users WHERE id = ?').get(payment.user_id);
+                const isFirstPackage = !userBefore || userBefore.has_package === 0;
+                const namesCredit = pkg.names_count || 0;
+                db.prepare('UPDATE users SET points = points + ?, names_available = names_available + ? WHERE id = ?')
+                    .run(pkg.points, namesCredit, payment.user_id);
+                db.prepare('UPDATE users SET has_package = 1 WHERE id = ?').run(payment.user_id);
+                if (isFirstPackage) {
+                    const now = new Date();
+                    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                    db.prepare('UPDATE users SET monthly_fee_paid_until = ?, access_blocked = 0, active = 1 WHERE id = ?')
+                        .run(endOfMonth.toISOString().split('T')[0], payment.user_id);
+                }
+                if (pkg.level_key) {
+                    const LEVEL_ORDER = { start: 1, bronze: 2, prata: 3, ouro: 4, diamante: 5 };
+                    const user = db.prepare('SELECT level FROM users WHERE id = ?').get(payment.user_id);
+                    if ((LEVEL_ORDER[pkg.level_key] || 0) > (LEVEL_ORDER[user?.level] || 0)) {
+                        db.prepare('UPDATE users SET level = ? WHERE id = ?').run(pkg.level_key, payment.user_id);
+                    }
+                }
+                db.prepare(`UPDATE user_packages SET status = 'ativo', payment_status = 'pago'
+                    WHERE user_id = ? AND package_id = ? AND payment_status = 'pendente'
+                    ORDER BY id DESC LIMIT 1`)
+                    .run(payment.user_id, pkg.id);
+                createNotification(payment.user_id, 'purchase', 'Pacote ativado!',
+                    `Seu pacote "${pkg.name}" foi ativado pelo administrador. +${pkg.points} pontos e ${namesCredit} nome(s) adicionados!`);
+            }
+        }
+
+        // Ativar plano
+        if (payment.type === 'plan') {
+            const ref = payment.external_reference || '';
+            const match = ref.match(/^plan_(.+?)_user_/);
+            if (match) {
+                db.prepare('UPDATE users SET plan = ? WHERE id = ?').run(match[1], payment.user_id);
+                createNotification(payment.user_id, 'plan', 'Plano ativado!', 'Seu plano foi ativado pelo administrador.');
+            }
+        }
+
+        // Depósito
+        if (payment.type === 'deposit') {
+            db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(payment.amount, payment.user_id);
+            db.prepare(`INSERT INTO transactions (user_id, type, amount, description, reference_type, reference_id, date, status)
+                VALUES (?, 'deposito', ?, 'Depósito confirmado (admin)', 'payment', ?, date('now'), 'concluido')`)
+                .run(payment.user_id, payment.amount, paymentId);
+            createNotification(payment.user_id, 'success', 'Depósito confirmado!',
+                `R$ ${payment.amount.toFixed(2)} creditados na sua carteira.`);
+        }
+
+        // Mensalidade
+        if (payment.type === 'monthly_fee') {
+            const now = new Date();
+            const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
+            db.prepare('UPDATE users SET monthly_fee_paid_until = ?, access_blocked = 0 WHERE id = ?')
+                .run(nextMonth.toISOString().slice(0, 10), payment.user_id);
+            createNotification(payment.user_id, 'success', 'Mensalidade paga!', 'Sua mensalidade foi confirmada pelo administrador.');
+        }
+
+        // Registrar transação
+        if (payment.type !== 'deposit' && payment.type !== 'monthly_fee') {
+            db.prepare(`INSERT OR IGNORE INTO transactions (user_id, type, amount, description, reference_type, reference_id, date, status)
+                VALUES (?, 'pagamento', ?, ?, 'payment', ?, date('now'), 'concluido')`)
+                .run(payment.user_id, payment.amount, `Pagamento ${payment.type} via ${payment.method} (admin)`, paymentId);
+        }
+
+        logAudit({ userType: 'admin', userId: req.user.id, action: 'admin_activate_payment', entity: 'payment',
+            entityId: paymentId, details: { userId: payment.user_id, type: payment.type, amount: payment.amount }, ip: getClientIP(req) });
+
+        res.json({ success: true, message: 'Pagamento ativado com sucesso' });
+    } catch (err) {
+        console.error('Erro ativar pagamento:', err.message);
+        res.status(500).json({ error: 'Erro ao ativar pagamento' });
+    }
+});
+
+// ════════════════════════════════════
+//   LISTAR PAGAMENTOS PENDENTES
+// ════════════════════════════════════
+router.get('/payments/pending', (req, res) => {
+    try {
+        const db = getDB();
+        const payments = db.prepare(`
+            SELECT p.*, u.name as user_name, u.email as user_email
+            FROM payments p
+            LEFT JOIN users u ON p.user_id = u.id
+            WHERE p.status = 'pendente'
+            ORDER BY p.created_at DESC
+            LIMIT 100
+        `).all();
+        res.json({ success: true, payments });
+    } catch (err) {
+        console.error('Erro listar pagamentos pendentes:', err.message);
+        res.status(500).json({ error: 'Erro ao listar pagamentos' });
     }
 });
 
