@@ -23,7 +23,7 @@ twa-manifest.json
 
 # Manter o APK do app rastreado no git (deploy via git pull no servidor)
 !uploads/app/
-!uploads/app/credbusiness.apk
+!uploads/app/credbusiness-erp.apk
 
 # Android keystore — NEVER commit credentials
 android/*.keystore

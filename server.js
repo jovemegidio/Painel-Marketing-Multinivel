@@ -499,13 +499,11 @@ app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
 // ── Download do APK Android ──
 app.get('/download/app', (req, res) => {
-    const apkPath = path.join(__dirname, 'uploads', 'app', 'credbusiness.apk');
-    if (!fs.existsSync(apkPath)) {
-        return res.status(404).json({ error: 'APK ainda não disponível' });
+    const apkPath = path.join(__dirname, 'uploads', 'app', 'credbusiness-erp.apk');
     }
     const stat = fs.statSync(apkPath);
     res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-    res.setHeader('Content-Disposition', 'attachment; filename="Credbusiness.apk"');
+    res.setHeader('Content-Disposition', 'attachment; filename="Credbusiness-ERP.apk"');
     res.setHeader('Content-Length', stat.size);
     res.setHeader('Cache-Control', 'public, max-age=86400');
     fs.createReadStream(apkPath).pipe(res);
@@ -537,15 +535,14 @@ app.post('/api/admin/apk/upload', (req, res, next) => {
 }, apkUpload.single('apk'), (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
     const destDir = path.join(__dirname, 'uploads', 'app');
-    const destPath = path.join(destDir, 'credbusiness.apk');
+    const destPath = path.join(destDir, 'credbusiness-erp.apk');
     fs.mkdirSync(destDir, { recursive: true });
     fs.renameSync(req.file.path, destPath);
     const stat = fs.statSync(destPath);
     res.json({ success: true, size: stat.size, updated: new Date().toISOString() });
 });
 app.get('/api/admin/apk/info', (req, res) => {
-    const apkPath = path.join(__dirname, 'uploads', 'app', 'credbusiness.apk');
-    if (!fs.existsSync(apkPath)) return res.json({ available: false });
+    const apkPath = path.join(__dirname, 'uploads', 'app', 'credbusiness-erp.apk');
     const stat = fs.statSync(apkPath);
     res.json({ available: true, size: stat.size, updated: stat.mtime });
 });
