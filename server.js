@@ -454,6 +454,10 @@ const publicAvatarDir = path.join(uploadsDir, 'avatars');
 if (!fs.existsSync(publicAvatarDir)) fs.mkdirSync(publicAvatarDir, { recursive: true });
 app.use('/uploads/avatars', express.static(publicAvatarDir));
 
+// Diretório do APK Android
+const appUploadDir = path.join(uploadsDir, 'app');
+if (!fs.existsSync(appUploadDir)) fs.mkdirSync(appUploadDir, { recursive: true });
+
 // Arquivos HTML na raiz (whitelist explícita)
 const publicFiles = ['index.html', 'login.html', 'register.html', 'password-forgot.html', 'password-reset.html', 'termos-de-uso.html', 'politica-de-privacidade.html', 'contrato.html', 'offline.html', 'manifest.json'];
 publicFiles.forEach(file => {
@@ -492,6 +496,59 @@ app.get('/.well-known/assetlinks.json', (req, res) => {
 });
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+
+// ── Download do APK Android ──
+app.get('/download/app', (req, res) => {
+    const apkPath = path.join(__dirname, 'uploads', 'app', 'credbusiness.apk');
+    if (!fs.existsSync(apkPath)) {
+        return res.status(404).json({ error: 'APK ainda não disponível' });
+    }
+    const stat = fs.statSync(apkPath);
+    res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+    res.setHeader('Content-Disposition', 'attachment; filename="Credbusiness.apk"');
+    res.setHeader('Content-Length', stat.size);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    fs.createReadStream(apkPath).pipe(res);
+});
+
+// ── Upload de nova versão do APK (admin autenticado) ──
+const multer = require('multer');
+const apkUpload = multer({
+    dest: path.join(__dirname, 'uploads', 'app', '_tmp'),
+    limits: { fileSize: 100 * 1024 * 1024 }, // 100 MB
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype === 'application/vnd.android.package-archive' ||
+            file.originalname.endsWith('.apk')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Apenas arquivos .apk são permitidos'));
+        }
+    }
+});
+app.post('/api/admin/apk/upload', (req, res, next) => {
+    // Verificar token admin
+    const token = req.cookies.adminToken || (req.headers.authorization || '').replace('Bearer ', '');
+    if (!token) return res.status(401).json({ error: 'Não autorizado' });
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        if (!decoded.admin) return res.status(403).json({ error: 'Acesso restrito' });
+        next();
+    } catch { return res.status(401).json({ error: 'Token inválido' }); }
+}, apkUpload.single('apk'), (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+    const destDir = path.join(__dirname, 'uploads', 'app');
+    const destPath = path.join(destDir, 'credbusiness.apk');
+    fs.mkdirSync(destDir, { recursive: true });
+    fs.renameSync(req.file.path, destPath);
+    const stat = fs.statSync(destPath);
+    res.json({ success: true, size: stat.size, updated: new Date().toISOString() });
+});
+app.get('/api/admin/apk/info', (req, res) => {
+    const apkPath = path.join(__dirname, 'uploads', 'app', 'credbusiness.apk');
+    if (!fs.existsSync(apkPath)) return res.json({ available: false });
+    const stat = fs.statSync(apkPath);
+    res.json({ available: true, size: stat.size, updated: stat.mtime });
+});
 
 // ── Custom pages: /pages/custom-{slug}.html → serve template ──
 app.get('/pages/custom-*.html', (req, res) => {

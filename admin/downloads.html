@@ -21,6 +21,39 @@
             <button class="btn btn-primary" onclick="openDlModal()"><i class="fas fa-plus"></i> Novo Material</button>
         </div>
 
+        <!-- Gerenciamento do APK Android -->
+        <div class="card" style="margin-bottom:20px;border:2px solid #1a9e3f22">
+            <div class="card-header" style="display:flex;align-items:center;gap:12px">
+                <i class="fab fa-android" style="font-size:1.3rem;color:#1a9e3f"></i>
+                <strong>App Android (APK)</strong>
+            </div>
+            <div class="card-body">
+                <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+                    <div id="apkStatusInfo" style="flex:1;min-width:200px">
+                        <p style="margin:0;font-size:.875rem;color:var(--text3)">Carregando informações do APK...</p>
+                    </div>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap">
+                        <a href="/download/app" download="Credbusiness.apk" class="btn btn-sm" style="background:#f0fdf4;color:#1a9e3f;border:1px solid #1a9e3f44">
+                            <i class="fas fa-download"></i> Baixar APK atual
+                        </a>
+                        <label class="btn btn-sm btn-outline" style="cursor:pointer;margin:0">
+                            <i class="fas fa-upload"></i> Enviar novo APK
+                            <input type="file" accept=".apk" style="display:none" onchange="uploadApk(this)">
+                        </label>
+                        <button class="btn btn-sm btn-outline" onclick="copyApkLink()">
+                            <i class="fas fa-link"></i> Copiar link
+                        </button>
+                    </div>
+                </div>
+                <div id="apkUploadProgress" style="display:none;margin-top:12px">
+                    <div style="height:4px;border-radius:4px;background:#e5e7eb;overflow:hidden">
+                        <div id="apkProgressBar" style="height:100%;background:#1a9e3f;width:0%;transition:width .3s"></div>
+                    </div>
+                    <p id="apkProgressText" style="margin:6px 0 0;font-size:.8rem;color:var(--text3)">Enviando APK...</p>
+                </div>
+            </div>
+        </div>
+
         <div class="card">
             <div class="card-body"><div class="table-wrap">
                 <table class="table wide-table" id="dlTable"><thead><tr>
@@ -158,6 +191,67 @@
         }
 
         loadDownloads();
+        loadApkInfo();
+
+        async function loadApkInfo() {
+            const info = await DB.api('GET', '/api/admin/apk/info');
+            const el = document.getElementById('apkStatusInfo');
+            if (!info || !info.available) {
+                el.innerHTML = '<p style="margin:0;font-size:.875rem;color:#ef4444"><i class="fas fa-exclamation-circle"></i> Nenhum APK disponível. Envie o arquivo abaixo.</p>';
+                return;
+            }
+            const mb = (info.size / 1024 / 1024).toFixed(1);
+            const dt = new Date(info.updated).toLocaleString('pt-BR');
+            el.innerHTML = `<p style="margin:0;font-size:.875rem"><i class="fab fa-android" style="color:#1a9e3f"></i> <strong>APK disponível</strong> — ${mb} MB &nbsp;|&nbsp; Atualizado: ${dt}</p>`;
+        }
+
+        async function uploadApk(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const progress = document.getElementById('apkUploadProgress');
+            const bar = document.getElementById('apkProgressBar');
+            const text = document.getElementById('apkProgressText');
+            progress.style.display = 'block';
+            bar.style.width = '20%';
+            text.textContent = 'Enviando APK...';
+
+            const formData = new FormData();
+            formData.append('apk', file);
+            const token = DB.getToken ? DB.getToken() : localStorage.getItem('adminToken');
+
+            try {
+                const xhr = new XMLHttpRequest();
+                xhr.upload.onprogress = (e) => {
+                    if (e.lengthComputable) {
+                        bar.style.width = Math.round((e.loaded / e.total) * 100) + '%';
+                    }
+                };
+                xhr.onload = () => {
+                    if (xhr.status === 200) {
+                        bar.style.width = '100%';
+                        text.textContent = 'APK enviado com sucesso!';
+                        Layout.toast('APK atualizado com sucesso!', 'success');
+                        setTimeout(() => { progress.style.display = 'none'; bar.style.width = '0%'; }, 2000);
+                        loadApkInfo();
+                    } else {
+                        text.textContent = 'Erro ao enviar APK.';
+                        Layout.toast('Erro ao enviar APK', 'error');
+                    }
+                };
+                xhr.onerror = () => { text.textContent = 'Erro de conexão.'; Layout.toast('Erro de conexão', 'error'); };
+                xhr.open('POST', '/api/admin/apk/upload');
+                xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+                xhr.send(formData);
+            } catch (err) {
+                Layout.toast('Erro: ' + err.message, 'error');
+            }
+            input.value = '';
+        }
+
+        function copyApkLink() {
+            const link = window.location.origin + '/download/app';
+            navigator.clipboard.writeText(link).then(() => Layout.toast('Link copiado!', 'success'));
+        }
     </script>
     <script src="/js/pwa.js"></script>
 </body>

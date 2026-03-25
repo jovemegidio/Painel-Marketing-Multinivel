@@ -18,6 +18,22 @@
     <template id="page-content">
         <div class="page-header"><h2>Downloads</h2><p>Materiais de marketing e apoio para sua equipe</p></div>
 
+        <!-- Card fixo: App Android -->
+        <div class="card" style="margin-bottom:24px;border:2px solid #1a9e3f22;background:linear-gradient(135deg,#f0fdf4,#fff)">
+            <div class="card-body" style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+                <div style="width:64px;height:64px;border-radius:16px;background:#1a9e3f;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                    <i class="fab fa-android" style="font-size:2rem;color:#fff"></i>
+                </div>
+                <div style="flex:1;min-width:200px">
+                    <h3 style="margin:0 0 4px;font-size:1.1rem">App Credbusiness para Android</h3>
+                    <p style="margin:0;font-size:.875rem;color:var(--text3)" id="apkInfoText">Versão completa do painel no seu celular. Instale o APK diretamente — sem precisar da Play Store.</p>
+                </div>
+                <a href="/download/app" download="Credbusiness.apk" class="btn btn-success" style="background:#1a9e3f;color:#fff;white-space:nowrap">
+                    <i class="fab fa-android"></i> Baixar APK
+                </a>
+            </div>
+        </div>
+
         <div class="tabs" id="dlTabs">
             <div class="tab active" onclick="filterDownloads('todos', this)">Todos</div>
             <div class="tab" onclick="filterDownloads('marca', this)">Marca</div>

@@ -12,7 +12,7 @@ backups/
 *.old.js
 test-local.js
 
-# Android / APK build artifacts
+# Android / APK build artifacts  
 android-twa/
 *.apk
 *.idsig
@@ -20,6 +20,10 @@ android-twa/
 build-apk.ps1
 generate-png-icons.py
 twa-manifest.json
+
+# Manter o APK do app rastreado no git (deploy via git pull no servidor)
+!uploads/app/
+!uploads/app/credbusiness.apk
 
 # Android keystore — NEVER commit credentials
 android/*.keystore
