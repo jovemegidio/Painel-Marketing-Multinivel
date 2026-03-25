@@ -157,7 +157,7 @@
     wrap.className = 'pwa-install-banner-wrap';
     wrap.innerHTML = `
       <div class="pwa-install-inner">
-        <img src="/icons/icon-192x192.png" class="pwa-app-icon" alt="Credbusiness" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'pwa-app-icon pwa-app-icon-fallback',textContent:'C'}))">
+        <div class="pwa-app-icon" style="background-image:url('/icons/icon-192x192.png')" role="img" aria-label="Credbusiness"></div>
         <div class="pwa-install-body">
           <div class="pwa-install-header">
             <strong>Credbusiness ERP</strong>
