@@ -73,4 +73,4 @@ c.on('ready', () => {
     });
     ws.end(remoteScript);
   });
-}).connect({ host: '177.153.58.152', port: 22, username: 'root', password: 'Credbusiness2504A@' });
+}).connect({ host: 'YOUR_VPS_IP', port: 22, username: 'root', password: 'CHANGE_ME_VPS_PASSWORD' });

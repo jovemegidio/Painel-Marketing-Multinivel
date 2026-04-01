@@ -1,7 +1,7 @@
 const { Client } = require('ssh2');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
-const VPS = { host: process.env.VPS_HOST || '177.153.58.152', port: Number(process.env.VPS_PORT) || 22, username: process.env.VPS_USER || 'root', password: process.env.VPS_PASSWORD };
+const VPS = { host: process.env.VPS_HOST || 'YOUR_VPS_IP', port: Number(process.env.VPS_PORT) || 22, username: process.env.VPS_USER || 'root', password: process.env.VPS_PASSWORD };
 if (!VPS.password) { console.error('❌ VPS_PASSWORD não definida no .env'); process.exit(1); }
 const c = new Client();
 

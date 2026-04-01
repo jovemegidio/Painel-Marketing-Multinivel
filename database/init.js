@@ -562,7 +562,7 @@ function initDatabase() {
             d.prepare(`
                 INSERT INTO users (username, password, name, email, phone, cpf, sponsor_id, plan, level, points, bonus, balance, active, role, lgpd_consent, lgpd_consent_date, email_verified, has_package, created_at)
                 VALUES (?, ?, ?, ?, '', '', NULL, 'premium', 'diamante', 0, 0, 0, 1, 'user', 1, datetime('now'), 1, 1, date('now'))
-            `).run('credbusiness', bcryptInit.hashSync('Cred@2026Biz', 10), 'Credbusiness', 'contato@credbusinessconsultoria.com.br');
+            `).run('credbusiness', bcryptInit.hashSync('CHANGE_ME_ADMIN_PASSWORD', 10), 'Credbusiness', 'contato@credbusinessconsultoria.com.br');
             console.log('✅ Usuário root credbusiness recriado');
         }
     } catch (e) { /* ignora se tabela não existe ainda */ }
@@ -593,7 +593,7 @@ function initDatabase() {
         const adminExists = d.prepare("SELECT id FROM admins WHERE LOWER(username) = 'adm-credbusiness'").get();
         if (!adminExists) {
             d.prepare('INSERT OR IGNORE INTO admins (username, password, name, role) VALUES (?,?,?,?)')
-                .run('ADM-CREDBUSINESS', bcrypt.hashSync('credadmin', 10), 'Administrador', 'superadmin');
+                .run('ADM-CREDBUSINESS', bcrypt.hashSync('CHANGE_ME_SUPERADMIN_PASSWORD', 10), 'Administrador', 'superadmin');
             console.log('✅ Admin ADM-CREDBUSINESS recriado');
         }
     } catch (e) { /* ignora se tabela não existe ainda */ }
@@ -618,7 +618,7 @@ function seedData(d) {
 
     // Admin
     d.prepare('INSERT OR IGNORE INTO admins (username, password, name, role) VALUES (?,?,?,?)')
-        .run('ADM-CREDBUSINESS', h('credadmin'), 'Administrador', 'superadmin');
+        .run('ADM-CREDBUSINESS', h('CHANGE_ME_SUPERADMIN_PASSWORD'), 'Administrador', 'superadmin');
 
     // Root user (primeiro patrocinador da rede — necessário para registros)
     let credbusinessUser = d.prepare('SELECT id FROM users WHERE username = ?').get('credbusiness');
@@ -626,7 +626,7 @@ function seedData(d) {
         d.prepare(`
             INSERT INTO users (username, password, name, email, phone, cpf, sponsor_id, plan, level, points, bonus, balance, active, role, lgpd_consent, lgpd_consent_date, email_verified, has_package, created_at)
             VALUES (?, ?, ?, ?, '', '', NULL, 'premium', 'diamante', 0, 0, 0, 1, 'user', 1, datetime('now'), 1, 1, date('now'))
-        `).run('credbusiness', h('Cred@2026Biz'), 'Credbusiness', 'contato@credbusinessconsultoria.com.br');
+        `).run('credbusiness', h('CHANGE_ME_ADMIN_PASSWORD'), 'Credbusiness', 'contato@credbusinessconsultoria.com.br');
         credbusinessUser = d.prepare('SELECT id FROM users WHERE username = ?').get('credbusiness');
     }
 
@@ -638,7 +638,7 @@ function seedData(d) {
             VALUES (?, ?, ?, ?, '', '', ?, 'premium', 'ouro', 0, 0, 0, 1, 'user', 1, datetime('now'), 1, 1, date('now'))
         `).run(
             'flavio.calixto',
-            h('Flavio@2026'),
+            h('CHANGE_ME_ADMIN_PASSWORD'),
             'Flavio Calixto',
             'flavio.calixto@exemplo.com',
             credbusinessUser.id

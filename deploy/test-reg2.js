@@ -2,10 +2,10 @@
 const { Client } = require('ssh2');
 
 const VPS = {
-    host: '177.153.58.152',
+    host: 'YOUR_VPS_IP',
     port: 22,
     username: 'root',
-    password: 'Credbusiness2504A@',
+    password: 'CHANGE_ME_VPS_PASSWORD',
     readyTimeout: 30000
 };
 

@@ -15,7 +15,7 @@ console.log('Teste removido');
         stream.on('close', () => { console.log(out); c.end(); });
     });
 }).connect({
-    host: process.env.VPS_HOST || '177.153.58.152',
+    host: process.env.VPS_HOST || 'YOUR_VPS_IP',
     port: 22,
     username: 'root',
     password: process.env.VPS_PASSWORD

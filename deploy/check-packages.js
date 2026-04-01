@@ -3,7 +3,7 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const VPS = {
-    host: process.env.VPS_HOST || '177.153.58.152',
+    host: process.env.VPS_HOST || 'YOUR_VPS_IP',
     port: 22,
     username: 'root',
     password: process.env.VPS_PASSWORD,

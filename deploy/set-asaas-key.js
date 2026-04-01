@@ -4,14 +4,14 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const VPS = {
-    host: process.env.VPS_HOST || '177.153.58.152',
+    host: process.env.VPS_HOST || 'YOUR_VPS_IP',
     port: Number(process.env.VPS_PORT) || 22,
     username: process.env.VPS_USER || 'root',
     password: process.env.VPS_PASSWORD,
     readyTimeout: 30000
 };
 
-const API_KEY = '$aact_prod_000MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OjY1N2QzOGNiLTkzMWUtNGY2YS1iYTgxLWJjNTJlNWQ0NTk3Mjo6JGFhY2hfNTVhMTE5ZDctNDNjZS00M2NlLWFjODktYTM3YTBlYmQ5ZWE2';
+const API_KEY = '$CHANGE_ME_ASAAS_API_KEY';
 
 const conn = new Client();
 conn.on('ready', () => {

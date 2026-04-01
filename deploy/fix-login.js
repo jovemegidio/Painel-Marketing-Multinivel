@@ -61,17 +61,17 @@ c.on('ready', async () => {
 
     // 4. Test login with root user
     console.log('\n🧪 Testing login...');
-    out = await exec(c, `curl -s -X POST http://localhost:3001/api/auth/login -H 'Content-Type: application/json' -d '{"username":"credbusiness","password":"Cred@2026Biz"}'`);
+    out = await exec(c, `curl -s -X POST http://localhost:3001/api/auth/login -H 'Content-Type: application/json' -d '{"username":"credbusiness","password":"CHANGE_ME_ADMIN_PASSWORD"}'`);
     const loginResult = JSON.parse(out);
     console.log('Root login:', loginResult.success ? '✅ OK' : `❌ ${loginResult.error}`);
 
     // 5. Test admin login
-    out = await exec(c, `curl -s -X POST http://localhost:3001/api/auth/admin-login -H 'Content-Type: application/json' -d '{"username":"ADM-CREDBUSINESS","password":"credadmin"}'`);
+    out = await exec(c, `curl -s -X POST http://localhost:3001/api/auth/admin-login -H 'Content-Type: application/json' -d '{"username":"ADM-CREDBUSINESS","password":"CHANGE_ME_SUPERADMIN_PASSWORD"}'`);
     const adminResult = JSON.parse(out);
     console.log('Admin login:', adminResult.success ? '✅ OK' : `❌ ${adminResult.error}`);
 
     // 6. Test through HTTPS
-    out = await exec(c, `curl -s -X POST https://www.credbusinessconsultoria.com.br/api/auth/login -H 'Content-Type: application/json' -d '{"username":"credbusiness","password":"Cred@2026Biz"}'`);
+    out = await exec(c, `curl -s -X POST https://www.credbusinessconsultoria.com.br/api/auth/login -H 'Content-Type: application/json' -d '{"username":"credbusiness","password":"CHANGE_ME_ADMIN_PASSWORD"}'`);
     try {
         const httpsResult = JSON.parse(out);
         console.log('HTTPS login:', httpsResult.success ? '✅ OK' : `❌ ${httpsResult.error}`);
@@ -91,7 +91,7 @@ c.on('ready', async () => {
 
     c.end();
 }).connect({
-    host: process.env.VPS_HOST || '177.153.58.152',
+    host: process.env.VPS_HOST || 'YOUR_VPS_IP',
     port: Number(process.env.VPS_PORT) || 22,
     username: process.env.VPS_USER || 'root',
     password: process.env.VPS_PASSWORD,

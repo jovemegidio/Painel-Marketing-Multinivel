@@ -73,7 +73,7 @@ describe('Auth — Admin Login', () => {
     test('POST /api/auth/admin-login com credenciais padrão → 200', async () => {
         const res = await request(app)
             .post('/api/auth/admin-login')
-            .send({ username: 'ADM-CREDBUSINESS', password: 'credadmin' });
+            .send({ username: 'ADM-CREDBUSINESS', password: 'CHANGE_ME_SUPERADMIN_PASSWORD' });
         expect(res.status).toBe(200);
         expect(res.body).toHaveProperty('token');
         adminToken = res.body.token;

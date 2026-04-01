@@ -43,7 +43,7 @@ c.on('ready', () => {
   }
   next();
 }).connect({
-  host: process.env.VPS_HOST || '177.153.58.152',
+  host: process.env.VPS_HOST || 'YOUR_VPS_IP',
   port: Number(process.env.VPS_PORT) || 22,
   username: process.env.VPS_USER || 'root',
   password: process.env.VPS_PASSWORD,
