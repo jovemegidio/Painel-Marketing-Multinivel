@@ -73,6 +73,9 @@
     <div id="app"></div>
 
     <template id="page-content">
+        <!-- Monthly Fee Alert -->
+        <div id="monthlyFeeAlert" style="display:none"></div>
+
         <!-- Profile Hero -->
         <div class="profile-hero">
             <div class="profile-hero-inner">
@@ -201,6 +204,103 @@
 
         function openEditProfile() {
             const genderOpts = [['', 'Selecione'], ['masculino', 'Masculino'], ['feminino', 'Feminino'], ['outro', 'Outro']];
+
+        // ── Monthly Fee Status ──
+        (async function checkMonthlyFee() {
+            try {
+                const fee = await DB.getMonthlyFeeStatus();
+                if (!fee || !fee.success || fee.noPackage) return;
+                const el = document.getElementById('monthlyFeeAlert');
+                if (fee.accessBlocked) {
+                    el.style.display = 'block';
+                    el.innerHTML = `
+                        <div style="background:linear-gradient(135deg,#dc2626,#b91c1c);border-radius:var(--radius);padding:20px 24px;color:#fff;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+                            <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:200px">
+                                <i class="fas fa-exclamation-triangle" style="font-size:1.5rem"></i>
+                                <div><strong style="font-size:1rem">Mensalidade Vencida</strong><p style="font-size:.82rem;opacity:.9;margin-top:4px">Seu acesso está bloqueado. Pague R$ ${fmt(fee.monthlyFeeValue)} para reativar.</p></div>
+                            </div>
+                            <button class="btn" onclick="payMonthlyFee()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);color:#fff;padding:10px 24px;border-radius:10px;font-weight:700;font-size:.85rem;white-space:nowrap;cursor:pointer"><i class="fas fa-credit-card"></i> Pagar Agora</button>
+                        </div>`;
+                } else if (!fee.isPaid) {
+                    el.style.display = 'block';
+                    el.innerHTML = `
+                        <div style="background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:var(--radius);padding:20px 24px;color:#fff;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+                            <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:200px">
+                                <i class="fas fa-clock" style="font-size:1.5rem"></i>
+                                <div><strong style="font-size:1rem">Mensalidade Pendente</strong><p style="font-size:.82rem;opacity:.9;margin-top:4px">Sua mensalidade de R$ ${fmt(fee.monthlyFeeValue)} está pendente.</p></div>
+                            </div>
+                            <button class="btn" onclick="payMonthlyFee()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);color:#fff;padding:10px 24px;border-radius:10px;font-weight:700;font-size:.85rem;white-space:nowrap;cursor:pointer"><i class="fas fa-credit-card"></i> Pagar Agora</button>
+                        </div>`;
+                } else if (fee.paidUntil) {
+                    el.style.display = 'block';
+                    const paidDate = new Date(fee.paidUntil).toLocaleDateString('pt-BR');
+                    const daysLeft = fee.daysUntilDue || 0;
+                    const barColor = daysLeft <= 5 ? '#f59e0b' : '#10b981';
+                    el.innerHTML = `
+                        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px;margin-bottom:24px">
+                            <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+                                <div style="display:flex;align-items:center;gap:12px">
+                                    <div style="width:44px;height:44px;border-radius:12px;background:rgba(16,185,129,.1);display:flex;align-items:center;justify-content:center;color:#10b981;font-size:1.2rem"><i class="fas fa-calendar-check"></i></div>
+                                    <div>
+                                        <strong style="font-size:.95rem">Mensalidade em Dia</strong>
+                                        <p style="font-size:.82rem;color:var(--text3);margin-top:2px">Pago até ${paidDate} · ${daysLeft > 0 ? daysLeft + ' dia(s) restante(s)' : 'Vence hoje'}</p>
+                                    </div>
+                                </div>
+                                ${daysLeft <= 5 ? `<button class="btn btn-primary" onclick="payMonthlyFee()" style="font-size:.82rem;padding:8px 18px"><i class="fas fa-credit-card"></i> Renovar</button>` : ''}
+                            </div>
+                        </div>`;
+                }
+            } catch(e) { console.error('Monthly fee check error:', e); }
+        })();
+
+        function payMonthlyFee() {
+            Layout.openModal('Pagar Mensalidade', `
+                <div style="text-align:center;padding:16px">
+                    <i class="fas fa-file-invoice-dollar" style="font-size:2.5rem;color:var(--primary);margin-bottom:12px"></i>
+                    <p style="color:var(--text3);font-size:.85rem;margin-bottom:20px">Escolha a forma de pagamento:</p>
+                    <div style="display:flex;flex-direction:column;gap:10px">
+                        <button class="btn btn-success w-full" onclick="processMonthlyFee('pix')"><i class="fas fa-qrcode"></i> Pagar com PIX</button>
+                        <button class="btn btn-primary w-full" onclick="processMonthlyFee('boleto')"><i class="fas fa-barcode"></i> Pagar com Boleto</button>
+                    </div>
+                </div>
+            `, `<button class="btn btn-outline" onclick="Layout.closeModal()">Cancelar</button>`);
+        }
+
+        async function processMonthlyFee(method) {
+            Layout.closeModal();
+            Layout.toast('Processando pagamento...', 'info');
+            const result = await DB.payMonthlyFee(method);
+            if (!result) { Layout.toast('Erro de conexão', 'error'); return; }
+            if (result.error) { Layout.toast(result.error, 'error'); return; }
+            if (result.approved) {
+                Layout.toast(result.message || 'Mensalidade paga!', 'success');
+                await DB.syncData();
+                setTimeout(() => location.reload(), 1500);
+                return;
+            }
+            if (method === 'pix' && (result.pixQrCode || result.pixCopyPaste)) {
+                Layout.openModal('PIX — Mensalidade', `
+                    <div style="text-align:center;padding:16px">
+                        <h3 style="margin-bottom:12px;color:var(--success)"><i class="fas fa-qrcode"></i> PIX</h3>
+                        <p style="font-size:1.5rem;font-weight:700;color:var(--accent)">R$ ${fmt(result.value)}</p>
+                        ${result.pixQrCode ? `<img src="data:image/png;base64,${result.pixQrCode}" alt="QR" style="max-width:250px;margin:16px auto;display:block;border-radius:12px;border:2px solid var(--border)">` : ''}
+                        ${result.pixCopyPaste ? `<div onclick="navigator.clipboard.writeText(this.textContent).then(()=>Layout.toast('Código copiado!','success'))" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:.75rem;word-break:break-all;cursor:pointer;margin-top:12px">${result.pixCopyPaste}</div>` : ''}
+                        <p style="font-size:.78rem;color:var(--text3);margin-top:12px">Após o pagamento, seu acesso será liberado automaticamente.</p>
+                    </div>
+                `, `<button class="btn btn-outline" onclick="Layout.closeModal()">Fechar</button>`);
+            } else if (method === 'boleto' && result.invoiceUrl) {
+                Layout.openModal('Boleto — Mensalidade', `
+                    <div style="text-align:center;padding:16px">
+                        <h3 style="margin-bottom:12px"><i class="fas fa-barcode"></i> Boleto</h3>
+                        <a href="${result.invoiceUrl}" target="_blank" class="btn btn-primary" style="margin-top:16px"><i class="fas fa-external-link-alt"></i> Abrir Boleto</a>
+                        <p style="font-size:.78rem;color:var(--text3);margin-top:12px">Após o pagamento, seu acesso será liberado automaticamente.</p>
+                    </div>
+                `, `<button class="btn btn-outline" onclick="Layout.closeModal()">Fechar</button>`);
+            } else {
+                Layout.toast('Pagamento gerado. Aguarde confirmação.', 'info');
+            }
+        }
+
             const currentAvatar = user.avatar ? (user.avatar.startsWith('http') ? user.avatar : `../${user.avatar}`) : `https://ui-avatars.com/api/?name=${encodeURIComponent(user.nickname || user.name)}&background=3b82f6&color=fff&size=80&rounded=true&bold=true`;
             Layout.openModal('Editar Perfil', `
                 <div style="display:grid;gap:16px">
