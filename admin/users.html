@@ -12,6 +12,8 @@
     <title>Credbusiness Admin — Usuários</title>
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
     <div id="app"></div>
@@ -122,7 +124,7 @@
                         <label style="font-size:12px;margin-bottom:4px">Data Fim</label>
                         <input type="date" id="reportDateTo" class="form-control" onchange="loadReport()">
                     </div>
-                    <button class="btn btn-outline" onclick="exportNamesReport()" style="height:38px"><i class="fas fa-download"></i> Exportar CSV</button>
+                    <button class="btn btn-outline" onclick="exportNamesReport()" style="height:38px"><i class="fas fa-file-pdf"></i> Exportar PDF</button>
                 </div>
 
                 <!-- Cards totais -->
@@ -399,7 +401,7 @@
         }
 
         async function exportNamesReport() {
-            Layout.toast('Gerando relatório CSV...', 'info');
+            Layout.toast('Gerando PDF...', 'info');
             try {
                 const params = new URLSearchParams();
                 const status = document.getElementById('reportStatus').value;
@@ -409,20 +411,89 @@
                 if (dateFrom) params.set('date_from', dateFrom);
                 if (dateTo) params.set('date_to', dateTo);
 
-                const resp = await fetch(`${DB.baseUrl || ''}/api/admin/users/reports/names/export?${params}`, {
+                const resp = await fetch(`${DB.baseUrl || ''}/api/admin/users/reports/names?${params}`, {
                     headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('admin_token') || localStorage.getItem('token')) }
                 });
-                if (!resp.ok) throw new Error('Erro ao gerar relatório');
-                const blob = await resp.blob();
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'relatorio_nomes_' + new Date().toISOString().slice(0,10) + '.csv';
-                a.click();
-                URL.revokeObjectURL(url);
-                Layout.toast('Relatório exportado!', 'success');
+                const data = await resp.json();
+                if (!data.success) throw new Error(data.error);
+
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+                const now = new Date();
+                const dataStr = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR');
+
+                // Header
+                doc.setFontSize(18);
+                doc.setTextColor(99, 102, 241);
+                doc.text('Credbusiness', 14, 18);
+                doc.setFontSize(13);
+                doc.setTextColor(30, 41, 59);
+                doc.text('Relatório de Nomes por Usuário', 14, 26);
+                doc.setFontSize(9);
+                doc.setTextColor(100, 116, 139);
+                let subtitle = 'Gerado em: ' + dataStr;
+                if (status) subtitle += '  |  Status: ' + status;
+                if (dateFrom) subtitle += '  |  De: ' + dateFrom;
+                if (dateTo) subtitle += '  |  Até: ' + dateTo;
+                doc.text(subtitle, 14, 32);
+
+                // Totals boxes
+                const t = data.totals;
+                const boxes = [
+                    { label: 'Usuários', value: t.usuarios, color: [241,245,249] },
+                    { label: 'Total Nomes', value: t.total_nomes, color: [237,233,254] },
+                    { label: 'Pendentes', value: t.pendentes, color: [254,243,199] },
+                    { label: 'Em Andamento', value: t.em_andamento, color: [219,234,254] },
+                    { label: 'Concluídos', value: t.concluidos, color: [209,250,229] },
+                    { label: 'Cancelados', value: t.cancelados, color: [254,226,226] }
+                ];
+                const bw = 40, bh = 16, bx = 14, by = 36;
+                boxes.forEach((b, i) => {
+                    const x = bx + i * (bw + 4);
+                    doc.setFillColor(...b.color);
+                    doc.roundedRect(x, by, bw, bh, 2, 2, 'F');
+                    doc.setFontSize(14);
+                    doc.setTextColor(30, 41, 59);
+                    doc.text(String(b.value), x + bw/2, by + 8, { align: 'center' });
+                    doc.setFontSize(7);
+                    doc.setTextColor(100, 116, 139);
+                    doc.text(b.label, x + bw/2, by + 13, { align: 'center' });
+                });
+
+                // Table
+                const fmtDate = d => d ? new Date(d).toLocaleDateString('pt-BR') : '-';
+                doc.autoTable({
+                    startY: by + bh + 6,
+                    head: [['ID','Nome','Email','CPF','Plano','Nível','Créd.','Total','Pend.','Andamento','Concl.','Cancel.','Primeiro','Último']],
+                    body: data.report.map(r => [
+                        r.id, r.name, r.email, r.cpf||'-', r.plan, r.level,
+                        r.names_available, r.total_names, r.pendentes, r.em_andamento,
+                        r.concluidos, r.cancelados, fmtDate(r.primeiro_processo), fmtDate(r.ultimo_processo)
+                    ]),
+                    styles: { fontSize: 7, cellPadding: 2 },
+                    headStyles: { fillColor: [99,102,241], textColor: 255, fontStyle: 'bold', fontSize: 7 },
+                    alternateRowStyles: { fillColor: [248,250,252] },
+                    columnStyles: {
+                        0: { cellWidth: 10 },
+                        7: { fontStyle: 'bold', textColor: [99,102,241] }
+                    },
+                    margin: { left: 14, right: 14 }
+                });
+
+                // Footer
+                const pages = doc.internal.getNumberOfPages();
+                for (let i = 1; i <= pages; i++) {
+                    doc.setPage(i);
+                    doc.setFontSize(7);
+                    doc.setTextColor(150);
+                    doc.text('Credbusiness — Relatório de Nomes — ' + dataStr, 14, doc.internal.pageSize.height - 8);
+                    doc.text('Página ' + i + '/' + pages, doc.internal.pageSize.width - 14, doc.internal.pageSize.height - 8, { align: 'right' });
+                }
+
+                doc.save('relatorio_nomes_' + now.toISOString().slice(0,10) + '.pdf');
+                Layout.toast('PDF exportado com sucesso!', 'success');
             } catch (err) {
-                Layout.toast('Erro ao exportar: ' + err.message, 'error');
+                Layout.toast('Erro ao exportar PDF: ' + err.message, 'error');
             }
         }
     </script>
