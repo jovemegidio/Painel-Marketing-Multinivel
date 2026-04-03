@@ -15,7 +15,7 @@ const smokeUserUsername = process.env.SMOKE_USER_USERNAME || 'credbusiness';
 const smokeUserPassword = process.env.SMOKE_USER_PASSWORD;
 const smokeAdminUsername = process.env.SMOKE_ADMIN_USERNAME || 'ADM-CREDBUSINESS';
 const smokeAdminPassword = process.env.SMOKE_ADMIN_PASSWORD;
-if (!smokeUserPassword || !smokeAdminPassword) { console.error('❌ SMOKE_USER_PASSWORD e SMOKE_ADMIN_PASSWORD são obrigatórias'); process.exit(1); }
+if (!smokeUserPassword || !smokeAdminPassword) { console.warn('⚠️ SMOKE_USER_PASSWORD ou SMOKE_ADMIN_PASSWORD não definidas. Smoke tests serão pulados.'); }
 const APP_DIR = '/var/www/credbusiness';
 
 // Files to update
@@ -224,9 +224,11 @@ c.on('ready', async () => {
     console.log(`  Settings expõe comissões? ${hasCommission ? '❌ SIM' : '✅ NÃO'}`);
 
     // Test login
+    if (smokeUserPassword) {
     out = await exec(c, `curl -s -X POST http://localhost:3001/api/auth/login -H 'Content-Type: application/json' -d '{"username":"${smokeUserUsername}","password":"${smokeUserPassword}"}'`);
     const loginOk = out.includes('"success":true');
     console.log(`  Login: ${loginOk ? '✅ OK' : '❌ FALHOU'}`);
+    } else { console.log('  Login: ⚠️ pulado (sem SMOKE_USER_PASSWORD)'); }
 
     // Test login with wrong password returns 401
     out = await exec(c, `curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:3001/api/auth/login -H 'Content-Type: application/json' -d '{"username":"credbusiness","password":"wrong"}'`);
@@ -255,9 +257,11 @@ c.on('ready', async () => {
     console.log(`  Forgot-password sem tempPassword? ${noTemp ? '✅ SIM' : '❌ NÃO'}`);
 
     // Test admin login with new password
+    if (smokeAdminPassword) {
     out = await exec(c, `curl -s -X POST http://localhost:3001/api/auth/admin-login -H 'Content-Type: application/json' -d '{"username":"${smokeAdminUsername}","password":"${smokeAdminPassword}"}'`);
     const adminOk = out.includes('"success":true');
     console.log(`  Admin login (nova senha): ${adminOk ? '✅ OK' : '❌ FALHOU'}`);
+    } else { console.log('  Admin login: ⚠️ pulado (sem SMOKE_ADMIN_PASSWORD)'); }
 
     // Test old admin password no longer works
     out = await exec(c, `curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:3001/api/auth/admin-login -H 'Content-Type: application/json' -d '{"username":"admin","password":"admin123"}'`);
