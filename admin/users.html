@@ -19,6 +19,7 @@
         <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap">
             <div><h2>Gerenciar Usuários</h2><p>Adicione, edite ou remova usuários do sistema</p></div>
             <div style="display:flex;gap:8px">
+                <button class="btn btn-outline" onclick="openReportModal()"><i class="fas fa-chart-bar"></i> Relatório de Nomes</button>
                 <button class="btn btn-outline" onclick="exportUsers()"><i class="fas fa-file-csv"></i> Exportar CSV</button>
                 <button class="btn btn-primary" onclick="openModal('add')"><i class="fas fa-plus"></i> Novo Usuário</button>
             </div>
@@ -81,6 +82,7 @@
                         </div>
                         <div class="form-group"><label>Pontos</label><input type="number" id="fPoints" class="form-control" value="0" min="0"></div>
                         <div class="form-group"><label>Saldo (R$)</label><input type="number" id="fBalance" class="form-control" value="0" min="0" step="0.01"></div>
+                        <div class="form-group"><label>Créditos de Nomes</label><input type="number" id="fNamesAvailable" class="form-control" value="0" min="0" title="Quantidade de nomes disponíveis para processos de limpeza"></div>
                         <div class="form-group"><label>Status</label>
                             <select id="fStatus" class="form-control"><option value="ativo">Ativo</option><option value="inativo">Inativo</option></select>
                         </div>
@@ -91,6 +93,51 @@
                         <button type="submit" class="btn btn-primary">Salvar</button>
                     </div>
                 </form>
+            </div>
+        </div>
+        <!-- Modal Relatório de Nomes -->
+        <div id="reportModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center">
+            <div style="background:#fff;border-radius:12px;width:95vw;max-width:1100px;max-height:90vh;overflow-y:auto;padding:24px">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+                    <h3><i class="fas fa-chart-bar" style="color:#6366f1"></i> Relatório de Nomes por Usuário</h3>
+                    <button onclick="closeReportModal()" style="background:none;border:none;font-size:20px;cursor:pointer">&times;</button>
+                </div>
+
+                <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;align-items:flex-end">
+                    <div class="form-group" style="margin:0;flex:1 1 140px">
+                        <label style="font-size:12px;margin-bottom:4px">Status do Processo</label>
+                        <select id="reportStatus" class="form-control" onchange="loadReport()">
+                            <option value="">Todos</option>
+                            <option value="pendente">Pendente</option>
+                            <option value="em_andamento">Em Andamento</option>
+                            <option value="concluido">Concluído</option>
+                            <option value="cancelado">Cancelado</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin:0;flex:1 1 140px">
+                        <label style="font-size:12px;margin-bottom:4px">Data Início</label>
+                        <input type="date" id="reportDateFrom" class="form-control" onchange="loadReport()">
+                    </div>
+                    <div class="form-group" style="margin:0;flex:1 1 140px">
+                        <label style="font-size:12px;margin-bottom:4px">Data Fim</label>
+                        <input type="date" id="reportDateTo" class="form-control" onchange="loadReport()">
+                    </div>
+                    <button class="btn btn-outline" onclick="exportNamesReport()" style="height:38px"><i class="fas fa-download"></i> Exportar CSV</button>
+                </div>
+
+                <!-- Cards totais -->
+                <div id="reportTotals" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px"></div>
+
+                <!-- Tabela -->
+                <div class="table-wrap">
+                    <table class="table wide-table" id="reportTable">
+                        <thead><tr>
+                            <th>ID</th><th>Nome</th><th>Email</th><th>CPF</th><th>Plano</th><th>Nível</th><th>Créditos Disp.</th>
+                            <th style="color:#6366f1;font-weight:700">Total Nomes</th><th>Pendentes</th><th>Em Andamento</th><th>Concluídos</th><th>Cancelados</th><th>Primeiro</th><th>Último</th>
+                        </tr></thead>
+                        <tbody><tr><td colspan="14" style="text-align:center;color:#94a3b8">Carregando...</td></tr></tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </template>
@@ -126,7 +173,7 @@
                 <td><span class="badge badge-${u.active ? 'success' : 'danger'}">${st}</span></td>
                 <td>
                     <button class="btn btn-sm btn-outline" onclick="openModal('edit',${u.id})" title="Editar"><i class="fas fa-edit"></i></button>
-                    ${!u.active ? `<button class="btn btn-sm btn-success" onclick="activatePayment(${u.id})" title="Ativar Pagamento"><i class="fas fa-bolt"></i></button>` : ''}
+                    <button class="btn btn-sm btn-success" onclick="activatePayment(${u.id})" title="Ativar Pagamento Pendente"><i class="fas fa-bolt"></i></button>
                     <button class="btn btn-sm btn-warning" onclick="resetPassword(${u.id})" title="Resetar Senha"><i class="fas fa-key"></i></button>
                     <button class="btn btn-sm btn-danger" onclick="deleteUser(${u.id})" title="Excluir"><i class="fas fa-trash"></i></button>
                 </td>
@@ -155,6 +202,7 @@
                 document.getElementById('fLevel').value = u.level;
                 document.getElementById('fPoints').value = u.points;
                 document.getElementById('fBalance').value = u.balance;
+                document.getElementById('fNamesAvailable').value = u.names_available || 0;
                 document.getElementById('fStatus').value = u.active ? 'ativo' : 'inativo';
                 document.getElementById('fSponsor').value = u.sponsor || '';
             } else {
@@ -177,6 +225,7 @@
                 level: document.getElementById('fLevel').value,
                 points: parseInt(document.getElementById('fPoints').value) || 0,
                 balance: parseFloat(document.getElementById('fBalance').value) || 0,
+                names_available: parseInt(document.getElementById('fNamesAvailable').value) || 0,
                 active: document.getElementById('fStatus').value === 'ativo',
                 sponsor_id: sponsorVal ? parseInt(sponsorVal) || null : null
             };
@@ -266,6 +315,114 @@
                 renderTable();
             } else {
                 Layout.toast(res?.error || 'Erro ao ativar pagamento', 'error');
+            }
+        }
+        // ══════ Relatório de Nomes ══════
+        function openReportModal() {
+            document.getElementById('reportModal').style.display = 'flex';
+            document.getElementById('reportStatus').value = '';
+            document.getElementById('reportDateFrom').value = '';
+            document.getElementById('reportDateTo').value = '';
+            loadReport();
+        }
+        function closeReportModal() { document.getElementById('reportModal').style.display = 'none'; }
+
+        async function loadReport() {
+            const params = new URLSearchParams();
+            const status = document.getElementById('reportStatus').value;
+            const dateFrom = document.getElementById('reportDateFrom').value;
+            const dateTo = document.getElementById('reportDateTo').value;
+            if (status) params.set('status', status);
+            if (dateFrom) params.set('date_from', dateFrom);
+            if (dateTo) params.set('date_to', dateTo);
+
+            try {
+                const res = await fetch(`${DB.baseUrl || ''}/api/admin/users/reports/names?${params}`, {
+                    headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('admin_token') || localStorage.getItem('token')) }
+                });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error);
+
+                // Totais
+                const t = data.totals;
+                document.getElementById('reportTotals').innerHTML = `
+                    <div style="background:#f1f5f9;border-radius:10px;padding:14px;text-align:center">
+                        <div style="font-size:22px;font-weight:700;color:#1e293b">${t.usuarios}</div>
+                        <div style="font-size:12px;color:#64748b">Usuários</div>
+                    </div>
+                    <div style="background:#ede9fe;border-radius:10px;padding:14px;text-align:center">
+                        <div style="font-size:22px;font-weight:700;color:#6366f1">${t.total_nomes}</div>
+                        <div style="font-size:12px;color:#64748b">Total Nomes</div>
+                    </div>
+                    <div style="background:#fef3c7;border-radius:10px;padding:14px;text-align:center">
+                        <div style="font-size:22px;font-weight:700;color:#d97706">${t.pendentes}</div>
+                        <div style="font-size:12px;color:#64748b">Pendentes</div>
+                    </div>
+                    <div style="background:#dbeafe;border-radius:10px;padding:14px;text-align:center">
+                        <div style="font-size:22px;font-weight:700;color:#2563eb">${t.em_andamento}</div>
+                        <div style="font-size:12px;color:#64748b">Em Andamento</div>
+                    </div>
+                    <div style="background:#d1fae5;border-radius:10px;padding:14px;text-align:center">
+                        <div style="font-size:22px;font-weight:700;color:#059669">${t.concluidos}</div>
+                        <div style="font-size:12px;color:#64748b">Concluídos</div>
+                    </div>
+                    <div style="background:#fee2e2;border-radius:10px;padding:14px;text-align:center">
+                        <div style="font-size:22px;font-weight:700;color:#dc2626">${t.cancelados}</div>
+                        <div style="font-size:12px;color:#64748b">Cancelados</div>
+                    </div>
+                `;
+
+                // Tabela
+                const tbody = document.querySelector('#reportTable tbody');
+                tbody.innerHTML = data.report.length ? data.report.map(r => {
+                    const fmtDate = d => d ? new Date(d).toLocaleDateString('pt-BR') : '-';
+                    return `<tr>
+                        <td>${r.id}</td>
+                        <td>${r.name}</td>
+                        <td>${r.email}</td>
+                        <td>${r.cpf || '-'}</td>
+                        <td><span class="badge badge-primary">${r.plan}</span></td>
+                        <td><span class="badge badge-secondary">${r.level}</span></td>
+                        <td>${r.names_available}</td>
+                        <td style="font-weight:700;color:#6366f1;font-size:16px">${r.total_names}</td>
+                        <td>${r.pendentes}</td>
+                        <td>${r.em_andamento}</td>
+                        <td style="color:#059669;font-weight:600">${r.concluidos}</td>
+                        <td style="color:#dc2626">${r.cancelados}</td>
+                        <td style="font-size:12px">${fmtDate(r.primeiro_processo)}</td>
+                        <td style="font-size:12px">${fmtDate(r.ultimo_processo)}</td>
+                    </tr>`;
+                }).join('') : '<tr><td colspan="14" style="text-align:center;color:#94a3b8">Nenhum processo de limpeza de nome encontrado</td></tr>';
+            } catch (err) {
+                Layout.toast('Erro ao carregar relatório: ' + err.message, 'error');
+            }
+        }
+
+        async function exportNamesReport() {
+            Layout.toast('Gerando relatório CSV...', 'info');
+            try {
+                const params = new URLSearchParams();
+                const status = document.getElementById('reportStatus').value;
+                const dateFrom = document.getElementById('reportDateFrom').value;
+                const dateTo = document.getElementById('reportDateTo').value;
+                if (status) params.set('status', status);
+                if (dateFrom) params.set('date_from', dateFrom);
+                if (dateTo) params.set('date_to', dateTo);
+
+                const resp = await fetch(`${DB.baseUrl || ''}/api/admin/users/reports/names/export?${params}`, {
+                    headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('admin_token') || localStorage.getItem('token')) }
+                });
+                if (!resp.ok) throw new Error('Erro ao gerar relatório');
+                const blob = await resp.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'relatorio_nomes_' + new Date().toISOString().slice(0,10) + '.csv';
+                a.click();
+                URL.revokeObjectURL(url);
+                Layout.toast('Relatório exportado!', 'success');
+            } catch (err) {
+                Layout.toast('Erro ao exportar: ' + err.message, 'error');
             }
         }
     </script>

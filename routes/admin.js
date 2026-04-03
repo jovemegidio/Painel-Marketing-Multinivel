@@ -96,6 +96,96 @@ router.get('/users', (req, res) => {
     });
 });
 
+// ══════ Relatório de nomes processados por usuário ══════
+router.get('/users/reports/names', (req, res) => {
+    try {
+        const db = getDB();
+        const { status, date_from, date_to, user_id } = req.query;
+
+        let where = 'WHERE p.type = ?';
+        const params = ['limpa_nome'];
+
+        if (status) { where += ' AND p.status = ?'; params.push(status); }
+        if (date_from) { where += ' AND p.created_at >= ?'; params.push(date_from); }
+        if (date_to) { where += ' AND p.created_at <= ?'; params.push(date_to + ' 23:59:59'); }
+        if (user_id) { where += ' AND p.user_id = ?'; params.push(user_id); }
+
+        const report = db.prepare(`
+            SELECT u.id, u.name, u.email, u.cpf, u.phone, u.plan, u.level, u.names_available,
+                COUNT(p.id) as total_names,
+                SUM(CASE WHEN p.status = 'pendente' THEN 1 ELSE 0 END) as pendentes,
+                SUM(CASE WHEN p.status = 'em_andamento' THEN 1 ELSE 0 END) as em_andamento,
+                SUM(CASE WHEN p.status = 'concluido' THEN 1 ELSE 0 END) as concluidos,
+                SUM(CASE WHEN p.status = 'cancelado' THEN 1 ELSE 0 END) as cancelados,
+                MIN(p.created_at) as primeiro_processo,
+                MAX(p.created_at) as ultimo_processo
+            FROM processes p
+            INNER JOIN users u ON p.user_id = u.id
+            ${where}
+            GROUP BY u.id
+            ORDER BY total_names DESC
+        `).all(...params);
+
+        const totals = {
+            usuarios: report.length,
+            total_nomes: report.reduce((s, r) => s + r.total_names, 0),
+            pendentes: report.reduce((s, r) => s + r.pendentes, 0),
+            em_andamento: report.reduce((s, r) => s + r.em_andamento, 0),
+            concluidos: report.reduce((s, r) => s + r.concluidos, 0),
+            cancelados: report.reduce((s, r) => s + r.cancelados, 0)
+        };
+
+        logAudit({ userType: 'admin', userId: req.user.id, action: 'generate_names_report', entity: 'report', ip: getClientIP(req) });
+        res.json({ success: true, report, totals });
+    } catch (err) {
+        console.error('Erro gerar relatório de nomes:', err.message);
+        res.status(500).json({ error: 'Erro ao gerar relatório' });
+    }
+});
+
+router.get('/users/reports/names/export', (req, res) => {
+    try {
+        const db = getDB();
+        const { status, date_from, date_to } = req.query;
+
+        let where = 'WHERE p.type = ?';
+        const params = ['limpa_nome'];
+
+        if (status) { where += ' AND p.status = ?'; params.push(status); }
+        if (date_from) { where += ' AND p.created_at >= ?'; params.push(date_from); }
+        if (date_to) { where += ' AND p.created_at <= ?'; params.push(date_to + ' 23:59:59'); }
+
+        const report = db.prepare(`
+            SELECT u.id, u.name, u.email, u.cpf, u.phone, u.plan, u.level, u.names_available,
+                COUNT(p.id) as total_names,
+                SUM(CASE WHEN p.status = 'pendente' THEN 1 ELSE 0 END) as pendentes,
+                SUM(CASE WHEN p.status = 'em_andamento' THEN 1 ELSE 0 END) as em_andamento,
+                SUM(CASE WHEN p.status = 'concluido' THEN 1 ELSE 0 END) as concluidos,
+                SUM(CASE WHEN p.status = 'cancelado' THEN 1 ELSE 0 END) as cancelados,
+                MIN(p.created_at) as primeiro_processo,
+                MAX(p.created_at) as ultimo_processo
+            FROM processes p
+            INNER JOIN users u ON p.user_id = u.id
+            ${where}
+            GROUP BY u.id
+            ORDER BY total_names DESC
+        `).all(...params);
+
+        let csv = 'ID,Nome,Email,CPF,Telefone,Plano,Nível,Créditos Disponíveis,Total Nomes,Pendentes,Em Andamento,Concluídos,Cancelados,Primeiro Processo,Último Processo\n';
+        report.forEach(r => {
+            csv += `${r.id},"${r.name}","${r.email}","${r.cpf || ''}","${r.phone || ''}","${r.plan}","${r.level}",${r.names_available},${r.total_names},${r.pendentes},${r.em_andamento},${r.concluidos},${r.cancelados},"${r.primeiro_processo || ''}","${r.ultimo_processo || ''}"\n`;
+        });
+
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename=relatorio_nomes_' + new Date().toISOString().slice(0,10) + '.csv');
+        logAudit({ userType: 'admin', userId: req.user.id, action: 'export_names_report', entity: 'report', ip: getClientIP(req) });
+        res.send('\uFEFF' + csv);
+    } catch (err) {
+        console.error('Erro exportar relatório de nomes:', err.message);
+        res.status(500).json({ error: 'Erro ao exportar relatório' });
+    }
+});
+
 router.get('/users/:id', (req, res) => {
     const db = getDB();
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
@@ -146,17 +236,23 @@ router.post('/users', (req, res) => {
 
 router.put('/users/:id', (req, res) => {
     const db = getDB();
-    const { name, email, phone, cpf, level, points, bonus, balance, plan, active, role } = req.body;
+    const { name, email, phone, cpf, level, points, bonus, balance, plan, active, role, names_available } = req.body;
 
     // Atualizar dados básicos (sem balance/bonus direto)
     db.prepare(`UPDATE users SET
         name = COALESCE(?, name), email = COALESCE(?, email), phone = COALESCE(?, phone),
         cpf = COALESCE(?, cpf), level = COALESCE(?, level), points = COALESCE(?, points),
-        plan = COALESCE(?, plan), active = COALESCE(?, active), role = COALESCE(?, role)
+        plan = COALESCE(?, plan), active = COALESCE(?, active), role = COALESCE(?, role),
+        names_available = COALESCE(?, names_available),
+        has_package = CASE WHEN ? IS NOT NULL AND ? > 0 THEN 1 ELSE has_package END
         WHERE id = ?
     `).run(name||null, email||null, phone||null, cpf||null, level||null,
            points!=null?points:null,
-           plan||null, active!=null?(active?1:0):null, role||null, req.params.id);
+           plan||null, active!=null?(active?1:0):null, role||null,
+           names_available!=null?Number(names_available):null,
+           names_available!=null?Number(names_available):null,
+           names_available!=null?Number(names_available):null,
+           req.params.id);
 
     // Ajuste de balance/bonus via transação rastreável
     if (balance != null) {
