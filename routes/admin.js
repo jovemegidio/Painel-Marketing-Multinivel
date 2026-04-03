@@ -190,7 +190,18 @@ router.get('/users/:id', (req, res) => {
     const db = getDB();
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
     if (!user) return res.status(404).json({ error: 'Usuário não encontrado' });
-    res.json(safeUser(db, user));
+    const safe = safeUser(db, user);
+    const stats = db.prepare(`
+        SELECT
+            COUNT(*) as total_names,
+            SUM(CASE WHEN status = 'pendente' THEN 1 ELSE 0 END) as pendentes,
+            SUM(CASE WHEN status = 'em_andamento' THEN 1 ELSE 0 END) as em_andamento,
+            SUM(CASE WHEN status = 'concluido' THEN 1 ELSE 0 END) as concluidos,
+            SUM(CASE WHEN status = 'cancelado' THEN 1 ELSE 0 END) as cancelados
+        FROM processes WHERE user_id = ? AND type = 'limpa_nome'
+    `).get(req.params.id);
+    safe.names_stats = stats || { total_names: 0, pendentes: 0, em_andamento: 0, concluidos: 0, cancelados: 0 };
+    res.json(safe);
 });
 
 // ── Criar usuário (admin) ──

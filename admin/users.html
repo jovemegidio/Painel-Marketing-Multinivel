@@ -90,6 +90,32 @@
                         </div>
                         <div class="form-group"><label>Sponsor ID</label><input type="text" id="fSponsor" class="form-control" placeholder="ID do patrocinador"></div>
                     </div>
+                    <!-- Stats de Nomes (visível só ao editar) -->
+                    <div id="namesStatsBox" style="display:none;margin-top:16px;padding:16px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0">
+                        <h4 style="margin:0 0 12px;font-size:14px;color:#475569"><i class="fas fa-file-alt" style="color:#6366f1"></i> Nomes (Limpa Nome) Adquiridos</h4>
+                        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;text-align:center">
+                            <div style="background:#fff;border-radius:8px;padding:10px;border:1px solid #e2e8f0">
+                                <div id="statTotal" style="font-size:22px;font-weight:700;color:#1e293b">0</div>
+                                <div style="font-size:11px;color:#64748b">Total</div>
+                            </div>
+                            <div style="background:#fff;border-radius:8px;padding:10px;border:1px solid #fbbf24">
+                                <div id="statPendentes" style="font-size:22px;font-weight:700;color:#f59e0b">0</div>
+                                <div style="font-size:11px;color:#64748b">Pendentes</div>
+                            </div>
+                            <div style="background:#fff;border-radius:8px;padding:10px;border:1px solid #3b82f6">
+                                <div id="statAndamento" style="font-size:22px;font-weight:700;color:#3b82f6">0</div>
+                                <div style="font-size:11px;color:#64748b">Em Andamento</div>
+                            </div>
+                            <div style="background:#fff;border-radius:8px;padding:10px;border:1px solid #22c55e">
+                                <div id="statConcluidos" style="font-size:22px;font-weight:700;color:#22c55e">0</div>
+                                <div style="font-size:11px;color:#64748b">Concluídos</div>
+                            </div>
+                            <div style="background:#fff;border-radius:8px;padding:10px;border:1px solid #ef4444">
+                                <div id="statCancelados" style="font-size:22px;font-weight:700;color:#ef4444">0</div>
+                                <div style="font-size:11px;color:#64748b">Cancelados</div>
+                            </div>
+                        </div>
+                    </div>
                     <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:20px">
                         <button type="button" class="btn btn-outline" onclick="closeUserModal()">Cancelar</button>
                         <button type="submit" class="btn btn-primary">Salvar</button>
@@ -185,10 +211,11 @@
         }
         renderTable();
 
-        function openModal(mode, id) {
+        async function openModal(mode, id) {
             document.getElementById('userModal').style.display = 'flex';
             document.getElementById('userForm').reset();
             document.getElementById('editId').value = '';
+            document.getElementById('namesStatsBox').style.display = 'none';
             if (mode === 'edit' && id) {
                 const u = DB.getUser(Number(id));
                 if (!u) return;
@@ -207,6 +234,17 @@
                 document.getElementById('fNamesAvailable').value = u.names_available || 0;
                 document.getElementById('fStatus').value = u.active ? 'ativo' : 'inativo';
                 document.getElementById('fSponsor').value = u.sponsor || '';
+                // Buscar stats de nomes do backend
+                const detail = await DB.api('GET', `/api/admin/users/${u.id}`);
+                if (detail && detail.names_stats) {
+                    const s = detail.names_stats;
+                    document.getElementById('statTotal').textContent = s.total_names || 0;
+                    document.getElementById('statPendentes').textContent = s.pendentes || 0;
+                    document.getElementById('statAndamento').textContent = s.em_andamento || 0;
+                    document.getElementById('statConcluidos').textContent = s.concluidos || 0;
+                    document.getElementById('statCancelados').textContent = s.cancelados || 0;
+                    document.getElementById('namesStatsBox').style.display = 'block';
+                }
             } else {
                 document.getElementById('modalTitle').textContent = 'Novo Usuário';
                 document.getElementById('fUsername').disabled = false;
