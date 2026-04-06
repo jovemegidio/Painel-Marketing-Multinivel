@@ -202,15 +202,13 @@
             } catch(e) { document.getElementById('packageCards').innerHTML = '<p style="color:var(--text3)">Erro ao carregar pacotes</p>'; }
         })();
 
-        function openEditProfile() {
-            const genderOpts = [['', 'Selecione'], ['masculino', 'Masculino'], ['feminino', 'Feminino'], ['outro', 'Outro']];
-
         // ── Monthly Fee Status ──
         (async function checkMonthlyFee() {
             try {
                 const fee = await DB.getMonthlyFeeStatus();
                 if (!fee || !fee.success || fee.noPackage) return;
                 const el = document.getElementById('monthlyFeeAlert');
+                if (!el) return;
                 if (fee.accessBlocked) {
                     el.style.display = 'block';
                     el.innerHTML = `
@@ -235,7 +233,6 @@
                     el.style.display = 'block';
                     const paidDate = new Date(fee.paidUntil).toLocaleDateString('pt-BR');
                     const daysLeft = fee.daysUntilDue || 0;
-                    const barColor = daysLeft <= 5 ? '#f59e0b' : '#10b981';
                     el.innerHTML = `
                         <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px;margin-bottom:24px">
                             <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
@@ -300,6 +297,9 @@
                 Layout.toast('Pagamento gerado. Aguarde confirmação.', 'info');
             }
         }
+
+        function openEditProfile() {
+            const genderOpts = [['', 'Selecione'], ['masculino', 'Masculino'], ['feminino', 'Feminino'], ['outro', 'Outro']];
 
             const currentAvatar = user.avatar ? (user.avatar.startsWith('http') ? user.avatar : `../${user.avatar}`) : `https://ui-avatars.com/api/?name=${encodeURIComponent(user.nickname || user.name)}&background=3b82f6&color=fff&size=80&rounded=true&bold=true`;
             Layout.openModal('Editar Perfil', `

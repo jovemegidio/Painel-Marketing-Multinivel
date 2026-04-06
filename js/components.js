@@ -29,14 +29,26 @@ const Layout = {
         // Verificar se o usuário (não-admin) tem pacote ativo — se não, limitar acesso
         const freePages = ['dashboard', 'pacotes-disponiveis', 'pacotes-meus', 'meu-plano', 'configuracoes', 'suporte-tickets', 'suporte-faq', 'contratos'];
         this.hasPackage = !!(cur.has_package);
+        this.accessBlocked = !!(cur.access_blocked);
         if (!this.isAdmin && !this.hasPackage && this.page && !freePages.includes(this.page)) {
             window.location.href = this.basePath + 'pages/pacotes-disponiveis.html';
+            throw new Error('redirect');
+        }
+
+        // Se acesso bloqueado por mensalidade, redirecionar para dashboard (onde pode pagar)
+        if (!this.isAdmin && this.hasPackage && this.accessBlocked && this.page && !freePages.includes(this.page)) {
+            window.location.href = this.basePath + 'pages/dashboard.html';
             throw new Error('redirect');
         }
 
         this.buildLayout();
         this.initSidebar();
         this.initHeader();
+
+        // Global: verificar mensalidade bloqueada e mostrar banner de pagamento
+        if (!this.isAdmin && this.hasPackage) {
+            this._checkGlobalMonthlyFee();
+        }
 
         // Background sync — atualiza dados do servidor silenciosamente
         if (DB.getToken && DB.getToken()) {
@@ -77,6 +89,7 @@ const Layout = {
                     ${this.renderHeader()}
                 </header>
                 <main class="content" id="main-content" role="main" tabindex="-1">
+                    <div id="globalBlockedAlert" style="display:none"></div>
                     ${contentHTML}
                 </main>
                 <footer class="main-footer" role="contentinfo">
@@ -752,6 +765,95 @@ const Layout = {
         el.innerHTML = `<i class="fas ${icon[type] || icon.info}" aria-hidden="true"></i><span>${msg}</span>`;
         c.appendChild(el);
         setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3500);
+    },
+
+    // ── Global Monthly Fee Check (injects banner for blocked users on any page) ──
+    async _checkGlobalMonthlyFee() {
+        try {
+            // Skip pages that have their own monthlyFeeAlert (dashboard, meu-plano)
+            if (document.getElementById('monthlyFeeAlert')) return;
+            const fee = await DB.getMonthlyFeeStatus();
+            if (!fee || !fee.success || fee.noPackage) return;
+            const el = document.getElementById('globalBlockedAlert');
+            if (!el) return;
+            const monthlyVal = typeof fmt === 'function' ? fmt(fee.monthlyFeeValue) : Number(fee.monthlyFeeValue).toFixed(2);
+            if (fee.accessBlocked) {
+                el.style.display = 'block';
+                el.innerHTML = `
+                    <div style="background:linear-gradient(135deg,#dc2626,#b91c1c);border-radius:var(--radius);padding:20px 24px;color:#fff;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+                        <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:200px">
+                            <i class="fas fa-exclamation-triangle" style="font-size:1.5rem"></i>
+                            <div>
+                                <strong style="font-size:1rem">Acesso Bloqueado — Mensalidade Vencida</strong>
+                                <p style="font-size:.82rem;opacity:.9;margin-top:4px">Seu acesso está bloqueado por mensalidade pendente. Pague R$ ${monthlyVal} para reativar seu acesso completo.</p>
+                            </div>
+                        </div>
+                        <button class="btn" onclick="Layout._openGlobalPayment()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);color:#fff;padding:10px 24px;border-radius:10px;font-weight:700;font-size:.85rem;white-space:nowrap;cursor:pointer"><i class="fas fa-credit-card"></i> Pagar Agora</button>
+                    </div>`;
+            } else if (!fee.isPaid) {
+                el.style.display = 'block';
+                el.innerHTML = `
+                    <div style="background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:var(--radius);padding:20px 24px;color:#fff;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+                        <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:200px">
+                            <i class="fas fa-clock" style="font-size:1.5rem"></i>
+                            <div>
+                                <strong style="font-size:1rem">Mensalidade Pendente</strong>
+                                <p style="font-size:.82rem;opacity:.9;margin-top:4px">Sua mensalidade de R$ ${monthlyVal} está pendente. Pague para manter o acesso.</p>
+                            </div>
+                        </div>
+                        <button class="btn" onclick="Layout._openGlobalPayment()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);color:#fff;padding:10px 24px;border-radius:10px;font-weight:700;font-size:.85rem;white-space:nowrap;cursor:pointer"><i class="fas fa-credit-card"></i> Pagar Agora</button>
+                    </div>`;
+            }
+        } catch(e) { console.error('Global monthly fee check error:', e); }
+    },
+
+    _openGlobalPayment() {
+        this.openModal('Pagar Mensalidade', `
+            <div style="text-align:center;padding:16px">
+                <i class="fas fa-file-invoice-dollar" style="font-size:2.5rem;color:var(--primary);margin-bottom:12px"></i>
+                <p style="color:var(--text3);font-size:.85rem;margin-bottom:20px">Escolha a forma de pagamento:</p>
+                <div style="display:flex;flex-direction:column;gap:10px">
+                    <button class="btn btn-success w-full" onclick="Layout._processGlobalPayment('pix')"><i class="fas fa-qrcode"></i> Pagar com PIX</button>
+                    <button class="btn btn-primary w-full" onclick="Layout._processGlobalPayment('boleto')"><i class="fas fa-barcode"></i> Pagar com Boleto</button>
+                </div>
+            </div>
+        `, `<button class="btn btn-outline" onclick="Layout.closeModal()">Cancelar</button>`);
+    },
+
+    async _processGlobalPayment(method) {
+        this.closeModal();
+        this.toast('Processando pagamento...', 'info');
+        const result = await DB.payMonthlyFee(method);
+        if (!result) { this.toast('Erro de conexão', 'error'); return; }
+        if (result.error) { this.toast(result.error, 'error'); return; }
+        if (result.approved) {
+            this.toast(result.message || 'Mensalidade paga com sucesso!', 'success');
+            await DB.syncData();
+            setTimeout(() => location.reload(), 1500);
+            return;
+        }
+        const valStr = typeof fmt === 'function' ? fmt(result.value) : Number(result.value || 0).toFixed(2);
+        if (method === 'pix' && (result.pixQrCode || result.pixCopyPaste)) {
+            this.openModal('PIX — Mensalidade', `
+                <div style="text-align:center;padding:16px">
+                    <h3 style="margin-bottom:12px;color:var(--success)"><i class="fas fa-qrcode"></i> PIX</h3>
+                    <p style="font-size:1.5rem;font-weight:700;color:var(--accent)">R$ ${valStr}</p>
+                    ${result.pixQrCode ? `<img src="data:image/png;base64,${result.pixQrCode}" alt="QR Code" style="max-width:250px;margin:16px auto;display:block;border-radius:12px;border:2px solid var(--border)">` : ''}
+                    ${result.pixCopyPaste ? `<div onclick="navigator.clipboard.writeText(this.textContent).then(()=>Layout.toast('Código copiado!','success'))" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:.75rem;word-break:break-all;cursor:pointer;margin-top:12px" title="Clique para copiar">${result.pixCopyPaste}</div>` : ''}
+                    <p style="font-size:.78rem;color:var(--text3);margin-top:12px">Após o pagamento, seu acesso será liberado automaticamente.</p>
+                </div>
+            `, `<button class="btn btn-outline" onclick="Layout.closeModal()">Fechar</button>`);
+        } else if (method === 'boleto' && result.invoiceUrl) {
+            this.openModal('Boleto — Mensalidade', `
+                <div style="text-align:center;padding:16px">
+                    <h3 style="margin-bottom:12px"><i class="fas fa-barcode"></i> Boleto Bancário</h3>
+                    <a href="${result.invoiceUrl}" target="_blank" class="btn btn-primary" style="margin-top:16px"><i class="fas fa-external-link-alt"></i> Abrir Boleto</a>
+                    <p style="font-size:.78rem;color:var(--text3);margin-top:12px">Após o pagamento, seu acesso será liberado automaticamente.</p>
+                </div>
+            `, `<button class="btn btn-outline" onclick="Layout.closeModal()">Fechar</button>`);
+        } else {
+            this.toast('Pagamento gerado. Aguarde a confirmação.', 'info');
+        }
     }
 };
 
