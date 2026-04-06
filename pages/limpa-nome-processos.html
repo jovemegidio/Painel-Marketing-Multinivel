@@ -147,6 +147,17 @@
         render();
 
         function openNewProcess() {
+            if (Layout.accessBlocked) {
+                Layout.openModal('Acesso Bloqueado', `
+                    <div style="text-align:center;padding:20px">
+                        <div style="font-size:3rem;margin-bottom:16px"><i class="fas fa-lock" style="color:var(--danger)"></i></div>
+                        <h3 style="margin-bottom:8px">Mensalidade Pendente</h3>
+                        <p style="color:var(--text3);font-size:.9rem;margin-bottom:20px">Seu acesso está bloqueado por mensalidade pendente. Pague a mensalidade para poder abrir novos processos.</p>
+                        <a href="meu-plano.html" class="btn btn-primary w-full" style="display:flex;align-items:center;justify-content:center;gap:8px"><i class="fas fa-credit-card"></i> Pagar Mensalidade</a>
+                    </div>
+                `, `<button class="btn btn-outline" onclick="Layout.closeModal()">Fechar</button>`);
+                return;
+            }
             if (namesAvailable < 1) {
                 Layout.openModal('Sem Créditos', `
                     <div style="text-align:center;padding:20px">

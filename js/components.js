@@ -27,7 +27,7 @@ const Layout = {
         this.user = cur;
 
         // Verificar se o usuário (não-admin) tem pacote ativo — se não, limitar acesso
-        const freePages = ['dashboard', 'pacotes-disponiveis', 'pacotes-meus', 'meu-plano', 'configuracoes', 'suporte-tickets', 'suporte-faq', 'contratos'];
+        const freePages = ['dashboard', 'pacotes-disponiveis', 'pacotes-meus', 'meu-plano', 'configuracoes', 'suporte-tickets', 'suporte-faq', 'contratos', 'limpa-nome-processos', 'limpa-nome-dashboard', 'limpa-nome-consulta'];
         this.hasPackage = !!(cur.has_package);
         this.accessBlocked = !!(cur.access_blocked);
         if (!this.isAdmin && !this.hasPackage && this.page && !freePages.includes(this.page)) {

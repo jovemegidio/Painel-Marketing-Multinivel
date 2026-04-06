@@ -3,7 +3,7 @@
    Cache-first para assets, Network-first para API
    ═══════════════════════════════════════════ */
 
-const CACHE_NAME = 'credbusiness-v3';
+const CACHE_NAME = 'credbusiness-v4';
 const OFFLINE_URL = '/offline.html';
 
 // Assets essenciais para cache inicial
