@@ -51,6 +51,26 @@ function checkMonthlyFees() {
         const db = getDB();
         const today = new Date().toISOString().slice(0, 10);
 
+        // Corrigir usuários com has_package=1 mas monthly_fee_paid_until NULL
+        // (ex: ativados manualmente pelo admin sem definir data)
+        // Dar 30 dias a partir de agora
+        const now = new Date();
+        const defaultPaidUntil = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate()).toISOString().slice(0, 10);
+        const fixedNull = db.prepare(
+            "UPDATE users SET monthly_fee_paid_until = ? WHERE has_package = 1 AND monthly_fee_paid_until IS NULL"
+        ).run(defaultPaidUntil);
+        if (fixedNull.changes > 0) {
+            console.log(`[Mensalidade] ${fixedNull.changes} usuário(s) corrigido(s) — monthly_fee_paid_until era NULL, definido para ${defaultPaidUntil}`);
+        }
+
+        // Auto-desbloquear usuários que já pagaram (monthly_fee_paid_until >= hoje)
+        const unblocked = db.prepare(
+            "UPDATE users SET access_blocked = 0 WHERE has_package = 1 AND access_blocked = 1 AND monthly_fee_paid_until IS NOT NULL AND monthly_fee_paid_until >= ?"
+        ).run(today);
+        if (unblocked.changes > 0) {
+            console.log(`[Mensalidade] ${unblocked.changes} usuário(s) desbloqueado(s) automaticamente (mensalidade em dia)`);
+        }
+
         // Bloquear usuários com mensalidade vencida (que tenham pacote ativo e não estejam já bloqueados)
         const overdue = db.prepare(
             "UPDATE users SET access_blocked = 1 WHERE has_package = 1 AND access_blocked = 0 AND monthly_fee_paid_until IS NOT NULL AND monthly_fee_paid_until < ?"
@@ -65,10 +85,13 @@ function checkMonthlyFees() {
             ).all(today);
 
             const { createNotification } = require('./utils/notifications');
+            const settings = {};
+            db.prepare('SELECT * FROM settings').all().forEach(s => { settings[s.key] = s.value; });
+            const monthlyFee = Number(settings.monthlyFee) || 95;
             for (const u of blocked) {
                 try {
                     createNotification(u.id, 'warning', 'Mensalidade vencida',
-                        'Sua mensalidade está vencida e seu acesso foi bloqueado. Efetue o pagamento para reativar.');
+                        `Sua mensalidade de R$ ${monthlyFee.toFixed(2)} está vencida e seu acesso foi bloqueado. Efetue o pagamento para reativar.`);
                 } catch {}
             }
         }
@@ -77,9 +100,9 @@ function checkMonthlyFees() {
     }
 }
 
-// Verificar mensalidades ao iniciar + a cada 1 hora
+// Verificar mensalidades ao iniciar + a cada 15 minutos
 setTimeout(checkMonthlyFees, 10000); // 10s após iniciar
-setInterval(checkMonthlyFees, 60 * 60 * 1000);
+setInterval(checkMonthlyFees, 15 * 60 * 1000);
 
 // ── Auto-verificação de pagamentos PIX/Boleto pendentes ──
 async function checkPendingPayments() {
@@ -144,8 +167,8 @@ async function checkPendingPayments() {
                             db.prepare('UPDATE users SET has_package = 1 WHERE id = ?').run(p.user_id);
                             if (isFirstPackage) {
                                 const now = new Date();
-                                const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-                                const freeUntilStr = endOfMonth.toISOString().split('T')[0];
+                                const freeUntil = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
+                                const freeUntilStr = freeUntil.toISOString().split('T')[0];
                                 db.prepare('UPDATE users SET monthly_fee_paid_until = ?, access_blocked = 0, active = 1 WHERE id = ?')
                                     .run(freeUntilStr, p.user_id);
                             } else {

@@ -349,9 +349,9 @@ router.post('/users/:id/activate-payment', (req, res) => {
                 db.prepare('UPDATE users SET has_package = 1 WHERE id = ?').run(userId);
                 if (isFirstPackage) {
                     const now = new Date();
-                    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                    const freeUntil = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
                     db.prepare('UPDATE users SET monthly_fee_paid_until = ?, access_blocked = 0, active = 1 WHERE id = ?')
-                        .run(endOfMonth.toISOString().split('T')[0], userId);
+                        .run(freeUntil.toISOString().split('T')[0], userId);
                 }
                 if (pkg.level_key) {
                     const LEVEL_ORDER = { start: 1, bronze: 2, prata: 3, ouro: 4, diamante: 5 };
@@ -1316,9 +1316,9 @@ router.post('/payments/:id/activate', (req, res) => {
                 db.prepare('UPDATE users SET has_package = 1 WHERE id = ?').run(payment.user_id);
                 if (isFirstPackage) {
                     const now = new Date();
-                    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                    const freeUntil = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
                     db.prepare('UPDATE users SET monthly_fee_paid_until = ?, access_blocked = 0, active = 1 WHERE id = ?')
-                        .run(endOfMonth.toISOString().split('T')[0], payment.user_id);
+                        .run(freeUntil.toISOString().split('T')[0], payment.user_id);
                 }
                 if (pkg.level_key) {
                     const LEVEL_ORDER = { start: 1, bronze: 2, prata: 3, ouro: 4, diamante: 5 };

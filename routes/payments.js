@@ -481,13 +481,36 @@ router.get('/monthly-fee/status', auth, (req, res) => {
         const isPaid = paidUntil && paidUntil >= now;
         const daysUntilDue = paidUntil ? Math.ceil((paidUntil - now) / (1000 * 60 * 60 * 24)) : null;
 
+        // Se o usuário tem pacote mas está sem data de mensalidade (NULL), considerar como não pago
+        // para exibir opção de pagamento
+        const needsPayment = user.access_blocked || !isPaid || !paidUntil;
+
+        // Buscar pagamento pendente de mensalidade para mostrar QR code ao usuário bloqueado
+        let pendingPayment = null;
+        if (needsPayment) {
+            const pending = db.prepare(
+                "SELECT asaas_payment_id, method, amount, pix_qr_code, pix_copy_paste, invoice_url, status FROM payments WHERE user_id = ? AND type = 'monthly_fee' AND status IN ('pendente', 'processando') AND created_at >= datetime('now', '-3 days') ORDER BY created_at DESC LIMIT 1"
+            ).get(req.user.id);
+            if (pending) {
+                pendingPayment = {
+                    paymentId: pending.asaas_payment_id,
+                    method: pending.method,
+                    value: pending.amount,
+                    pixQrCode: pending.pix_qr_code || null,
+                    pixCopyPaste: pending.pix_copy_paste || null,
+                    invoiceUrl: pending.invoice_url || null
+                };
+            }
+        }
+
         res.json({
             success: true,
             isPaid,
             paidUntil: user.monthly_fee_paid_until || null,
             daysUntilDue,
             accessBlocked: !!user.access_blocked,
-            monthlyFeeValue: monthlyFee
+            monthlyFeeValue: monthlyFee,
+            pendingPayment
         });
     } catch (err) {
         console.error('Erro status mensalidade:', err.message);
@@ -516,14 +539,77 @@ router.post('/monthly-fee/pay', auth, async (req, res) => {
         db.prepare('SELECT * FROM settings').all().forEach(s => { settings[s.key] = s.value; });
         const monthlyFee = Number(settings.monthlyFee) || 95;
 
-        // Verificar se já há pagamento de mensalidade pendente este mês
+        // Verificar se já há pagamento de mensalidade pendente recente
         const now = new Date();
-        const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
         const pendingFee = db.prepare(
-            "SELECT id FROM payments WHERE user_id = ? AND type = 'monthly_fee' AND status IN ('pendente', 'processando') AND created_at >= ?"
-        ).get(user.id, monthStart);
-        if (pendingFee) {
-            return res.status(400).json({ error: 'Já existe uma cobrança de mensalidade pendente para este mês.' });
+            "SELECT * FROM payments WHERE user_id = ? AND type = 'monthly_fee' AND status IN ('pendente', 'processando') AND created_at >= datetime('now', '-3 days')"
+        ).get(user.id);
+
+        if (pendingFee && pendingFee.asaas_payment_id) {
+            // Já existe pagamento pendente — verificar se ainda é válido no Asaas
+            let stillPending = true;
+            if (asaas.isConfigured()) {
+                try {
+                    const asaasStatus = await asaas.getPaymentStatus(pendingFee.asaas_payment_id);
+                    if (asaasStatus) {
+                        const mapped = asaas.mapPaymentStatus(asaasStatus.status);
+                        if (mapped === 'pago') {
+                            // Pagamento já confirmado no Asaas — ativar e retornar
+                            db.prepare("UPDATE payments SET status = 'pago', paid_at = datetime('now') WHERE id = ?").run(pendingFee.id);
+                            processPaymentConfirmed(db, pendingFee);
+                            return res.json({ success: true, approved: true, message: 'Mensalidade confirmada! Acesso liberado.' });
+                        }
+                        if (['vencido', 'cancelado', 'estornado'].includes(mapped)) {
+                            // Pagamento expirado/cancelado — permitir gerar novo
+                            db.prepare("UPDATE payments SET status = ? WHERE id = ?").run(mapped, pendingFee.id);
+                            stillPending = false;
+                        }
+                    }
+                } catch(e) { console.error('[Monthly] Erro verificar pendente:', e.message); }
+            }
+
+            if (stillPending) {
+                // Retornar QR Code/dados do pagamento pendente existente para o usuário poder pagar
+                const response = {
+                    success: true,
+                    paymentId: pendingFee.asaas_payment_id,
+                    status: pendingFee.status,
+                    invoiceUrl: pendingFee.invoice_url || '',
+                    value: pendingFee.amount,
+                    method: pendingFee.method,
+                    existing: true
+                };
+                if (pendingFee.method === 'pix') {
+                    if (pendingFee.pix_qr_code) {
+                        response.pixQrCode = pendingFee.pix_qr_code;
+                        response.pixCopyPaste = pendingFee.pix_copy_paste;
+                    } else if (asaas.isConfigured()) {
+                        try {
+                            const pix = await asaas.getPixQrCode(pendingFee.asaas_payment_id);
+                            if (pix) {
+                                response.pixQrCode = pix.encodedImage;
+                                response.pixCopyPaste = pix.payload;
+                                db.prepare('UPDATE payments SET pix_qr_code = ?, pix_copy_paste = ? WHERE id = ?')
+                                    .run(pix.encodedImage, pix.payload, pendingFee.id);
+                            }
+                        } catch(e) { /* QR code pode ter expirado */ }
+                    }
+                    // Se não conseguiu QR code (expirou), marcar como vencido e deixar criar novo
+                    if (!response.pixQrCode) {
+                        db.prepare("UPDATE payments SET status = 'vencido' WHERE id = ?").run(pendingFee.id);
+                        stillPending = false;
+                    }
+                }
+                if (pendingFee.method === 'boleto' && pendingFee.invoice_url) {
+                    response.invoiceUrl = pendingFee.invoice_url;
+                }
+                if (stillPending) {
+                    return res.json(response);
+                }
+            }
+        } else if (pendingFee && !pendingFee.asaas_payment_id) {
+            // Pagamento pendente sem ID Asaas (modo fallback) — marcar como vencido
+            db.prepare("UPDATE payments SET status = 'vencido' WHERE id = ?").run(pendingFee.id);
         }
 
         if (!asaas.isConfigured()) {
@@ -872,11 +958,11 @@ function activatePackage(db, userId, pkg) {
     // Ativar acesso ao painel + atualizar nível
     db.prepare('UPDATE users SET has_package = 1 WHERE id = ?').run(userId);
 
-    // Primeiro pacote: mês atual grátis — mensalidade cobrada a partir do mês seguinte
+    // Primeiro pacote: 30 dias grátis a partir da compra
     if (isFirstPackage) {
         const now = new Date();
-        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0); // último dia do mês atual
-        const freeUntilStr = endOfMonth.toISOString().split('T')[0];
+        const freeUntil = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
+        const freeUntilStr = freeUntil.toISOString().split('T')[0];
         db.prepare('UPDATE users SET monthly_fee_paid_until = ?, access_blocked = 0, active = 1 WHERE id = ?')
             .run(freeUntilStr, userId);
     } else {

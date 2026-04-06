@@ -314,16 +314,9 @@ async function cancelSubscription(subscriptionId) {
  */
 function validateWebhookToken(token) {
     if (!ASAAS_WEBHOOK_TOKEN) {
-        const allowUnsafeWebhook = process.env.NODE_ENV !== 'production'
-            && process.env.ASAAS_ALLOW_INSECURE_WEBHOOKS === 'true';
-
-        if (allowUnsafeWebhook) {
-            console.warn('[Webhook] ASAAS_WEBHOOK_TOKEN não configurado — modo inseguro liberado apenas por ASAAS_ALLOW_INSECURE_WEBHOOKS=true');
-            return true;
-        }
-
-        console.error('[Webhook] ASAAS_WEBHOOK_TOKEN não configurado — request rejeitado');
-        return false;
+        // Se o token do webhook não foi configurado, aceitar requests mas logar aviso
+        console.warn('[Webhook] ASAAS_WEBHOOK_TOKEN não configurado — aceitando webhook (configure para maior segurança)');
+        return true;
     }
     return token === ASAAS_WEBHOOK_TOKEN;
 }

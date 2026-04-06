@@ -60,7 +60,21 @@ const Layout = {
                 }
                 // Refresh user data from cache after sync
                 const refreshed = DB.getCurrentUser();
-                if (refreshed) this.user = refreshed;
+                if (refreshed) {
+                    this.user = refreshed;
+                    // Reavaliar bloqueio com dados atualizados do servidor
+                    const freePages = ['dashboard', 'pacotes-disponiveis', 'pacotes-meus', 'meu-plano', 'configuracoes', 'suporte-tickets', 'suporte-faq', 'contratos'];
+                    this.hasPackage = !!(refreshed.has_package);
+                    this.accessBlocked = !!(refreshed.access_blocked);
+                    if (!this.isAdmin && !this.hasPackage && this.page && !freePages.includes(this.page)) {
+                        window.location.href = this.basePath + 'pages/pacotes-disponiveis.html';
+                        return;
+                    }
+                    if (!this.isAdmin && this.hasPackage && this.accessBlocked && this.page && !freePages.includes(this.page)) {
+                        window.location.href = this.basePath + 'pages/dashboard.html';
+                        return;
+                    }
+                }
             }).catch(() => {});
         }
     },
@@ -777,8 +791,16 @@ const Layout = {
             const el = document.getElementById('globalBlockedAlert');
             if (!el) return;
             const monthlyVal = typeof fmt === 'function' ? fmt(fee.monthlyFeeValue) : Number(fee.monthlyFeeValue).toFixed(2);
+            window._pendingPayment = fee.pendingPayment || null;
             if (fee.accessBlocked) {
                 el.style.display = 'block';
+                let payBtn = `<button class="btn" onclick="Layout._openGlobalPayment()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);color:#fff;padding:10px 24px;border-radius:10px;font-weight:700;font-size:.85rem;white-space:nowrap;cursor:pointer"><i class="fas fa-credit-card"></i> Pagar Agora</button>`;
+                if (fee.pendingPayment && fee.pendingPayment.pixQrCode) {
+                    payBtn = `<div style="display:flex;gap:8px;flex-wrap:wrap">
+                        <button class="btn" onclick="Layout._showGlobalExistingPayment()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);color:#fff;padding:10px 24px;border-radius:10px;font-weight:700;font-size:.85rem;white-space:nowrap;cursor:pointer"><i class="fas fa-qrcode"></i> Ver QR Code PIX</button>
+                        <button class="btn" onclick="Layout._openGlobalPayment()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:10px 18px;border-radius:10px;font-weight:600;font-size:.82rem;white-space:nowrap;cursor:pointer"><i class="fas fa-redo"></i> Novo Pagamento</button>
+                    </div>`;
+                }
                 el.innerHTML = `
                     <div style="background:linear-gradient(135deg,#dc2626,#b91c1c);border-radius:var(--radius);padding:20px 24px;color:#fff;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
                         <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:200px">
@@ -788,7 +810,7 @@ const Layout = {
                                 <p style="font-size:.82rem;opacity:.9;margin-top:4px">Seu acesso está bloqueado por mensalidade pendente. Pague R$ ${monthlyVal} para reativar seu acesso completo.</p>
                             </div>
                         </div>
-                        <button class="btn" onclick="Layout._openGlobalPayment()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);color:#fff;padding:10px 24px;border-radius:10px;font-weight:700;font-size:.85rem;white-space:nowrap;cursor:pointer"><i class="fas fa-credit-card"></i> Pagar Agora</button>
+                        ${payBtn}
                     </div>`;
             } else if (!fee.isPaid) {
                 el.style.display = 'block';
@@ -820,6 +842,25 @@ const Layout = {
         `, `<button class="btn btn-outline" onclick="Layout.closeModal()">Cancelar</button>`);
     },
 
+    _showGlobalExistingPayment() {
+        const pp = window._pendingPayment;
+        if (!pp) return this._openGlobalPayment();
+        if (pp.pixQrCode) {
+            const valStr = typeof fmt === 'function' ? fmt(pp.value) : Number(pp.value || 0).toFixed(2);
+            this.openModal('PIX — Mensalidade', `
+                <div style="text-align:center;padding:16px">
+                    <h3 style="margin-bottom:12px;color:var(--success)"><i class="fas fa-qrcode"></i> PIX</h3>
+                    <p style="font-size:1.5rem;font-weight:700;color:var(--accent)">R$ ${valStr}</p>
+                    <img src="data:image/png;base64,${pp.pixQrCode}" alt="QR Code" style="max-width:250px;margin:16px auto;display:block;border-radius:12px;border:2px solid var(--border)">
+                    ${pp.pixCopyPaste ? `<div onclick="navigator.clipboard.writeText(this.textContent).then(()=>Layout.toast('Código copiado!','success'))" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:.75rem;word-break:break-all;cursor:pointer;margin-top:12px" title="Clique para copiar">${pp.pixCopyPaste}</div>` : ''}
+                    <p style="font-size:.78rem;color:var(--text3);margin-top:12px">Após o pagamento, seu acesso será liberado automaticamente.</p>
+                </div>
+            `, `<button class="btn btn-outline" onclick="Layout.closeModal()">Fechar</button>`);
+        } else if (pp.invoiceUrl) {
+            window.open(pp.invoiceUrl, '_blank');
+        }
+    },
+
     async _processGlobalPayment(method) {
         this.closeModal();
         this.toast('Processando pagamento...', 'info');
@@ -832,18 +873,21 @@ const Layout = {
             setTimeout(() => location.reload(), 1500);
             return;
         }
+        const pixQr = result.pixQrCode || (result.pix && result.pix.qrCodeImage);
+        const pixCp = result.pixCopyPaste || (result.pix && result.pix.copyPaste);
+        const payMethod = result.method || method;
         const valStr = typeof fmt === 'function' ? fmt(result.value) : Number(result.value || 0).toFixed(2);
-        if (method === 'pix' && (result.pixQrCode || result.pixCopyPaste)) {
+        if (payMethod === 'pix' && (pixQr || pixCp)) {
             this.openModal('PIX — Mensalidade', `
                 <div style="text-align:center;padding:16px">
                     <h3 style="margin-bottom:12px;color:var(--success)"><i class="fas fa-qrcode"></i> PIX</h3>
                     <p style="font-size:1.5rem;font-weight:700;color:var(--accent)">R$ ${valStr}</p>
-                    ${result.pixQrCode ? `<img src="data:image/png;base64,${result.pixQrCode}" alt="QR Code" style="max-width:250px;margin:16px auto;display:block;border-radius:12px;border:2px solid var(--border)">` : ''}
-                    ${result.pixCopyPaste ? `<div onclick="navigator.clipboard.writeText(this.textContent).then(()=>Layout.toast('Código copiado!','success'))" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:.75rem;word-break:break-all;cursor:pointer;margin-top:12px" title="Clique para copiar">${result.pixCopyPaste}</div>` : ''}
+                    ${pixQr ? `<img src="data:image/png;base64,${pixQr}" alt="QR Code" style="max-width:250px;margin:16px auto;display:block;border-radius:12px;border:2px solid var(--border)">` : ''}
+                    ${pixCp ? `<div onclick="navigator.clipboard.writeText(this.textContent).then(()=>Layout.toast('Código copiado!','success'))" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:.75rem;word-break:break-all;cursor:pointer;margin-top:12px" title="Clique para copiar">${pixCp}</div>` : ''}
                     <p style="font-size:.78rem;color:var(--text3);margin-top:12px">Após o pagamento, seu acesso será liberado automaticamente.</p>
                 </div>
             `, `<button class="btn btn-outline" onclick="Layout.closeModal()">Fechar</button>`);
-        } else if (method === 'boleto' && result.invoiceUrl) {
+        } else if (payMethod === 'boleto' && result.invoiceUrl) {
             this.openModal('Boleto — Mensalidade', `
                 <div style="text-align:center;padding:16px">
                     <h3 style="margin-bottom:12px"><i class="fas fa-barcode"></i> Boleto Bancário</h3>
