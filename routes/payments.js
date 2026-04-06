@@ -394,7 +394,9 @@ router.post('/plan/:planId', auth, async (req, res) => {
  * GET /api/payments/:paymentId/status
  * Consulta o status atualizado de um pagamento
  */
-router.get('/:paymentId/status', auth, async (req, res) => {
+router.get('/:paymentId/status', auth, async (req, res, next) => {
+    // Não interceptar sub-rotas nomeadas (monthly-fee, etc)
+    if (['monthly-fee', 'my', 'webhook', 'admin'].includes(req.params.paymentId)) return next();
     try {
         const db = getDB();
         const asaasPaymentId = sanitize(req.params.paymentId);
@@ -701,7 +703,8 @@ router.post('/monthly-fee/pay', auth, async (req, res) => {
 //   PIX QR CODE (re-buscar)
 // ════════════════════════════════════
 
-router.get('/:paymentId/pix', auth, async (req, res) => {
+router.get('/:paymentId/pix', auth, async (req, res, next) => {
+    if (['monthly-fee', 'my', 'webhook', 'admin'].includes(req.params.paymentId)) return next();
     try {
         const db = getDB();
         const asaasPaymentId = sanitize(req.params.paymentId);
