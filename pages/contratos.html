@@ -172,8 +172,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closePdfView
 function printContract() {
     const content = document.getElementById('pdfContent').innerHTML;
     const w = window.open('', '_blank');
-    w.document.write(`<html><head><title>Contrato</title><style>body{font-family:Arial,sans-serif;padding:40px;line-height:1.8;color:#333}h3{margin-top:20px;margin-bottom:8px}p{margin-bottom:10px}</style></head><body>${content}    <script src="/js/pwa.js"></script>
-</body></html>`);
+    w.document.write(`<html><head><title>Contrato</title><style>body{font-family:Arial,sans-serif;padding:40px;line-height:1.8;color:#333}h3{margin-top:20px;margin-bottom:8px}p{margin-bottom:10px}</style></head><body>${content}</body></html>`);
     w.document.close();
     w.focus();
     w.print();
