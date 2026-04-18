@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { TransactionStatus } from "@prisma/client";
 import { successResponse, errorResponse } from "@/lib/api-response";
 import { DEMO_MODE } from "@/lib/demo";
 
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest) {
     if (payment.id) {
       const updated = await prisma.transaction.updateMany({
         where: { asaasId: payment.id },
-        data: { status: newStatus, updatedAt: new Date() },
+        data: { status: newStatus as TransactionStatus, updatedAt: new Date() },
       });
 
       if (updated.count > 0 && newStatus === "CONFIRMED") {
