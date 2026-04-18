@@ -154,9 +154,9 @@ export async function DELETE(request: Request) {
 
 async function hmacSHA1(key: Uint8Array, data: Uint8Array): Promise<Uint8Array> {
   const cryptoKey = await crypto.subtle.importKey(
-    "raw", key, { name: "HMAC", hash: "SHA-1" }, false, ["sign"]
+    "raw", key as BufferSource, { name: "HMAC", hash: "SHA-1" }, false, ["sign"]
   );
-  const signature = await crypto.subtle.sign("HMAC", cryptoKey, data);
+  const signature = await crypto.subtle.sign("HMAC", cryptoKey, data as BufferSource);
   return new Uint8Array(signature);
 }
 
